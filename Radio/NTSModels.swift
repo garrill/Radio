@@ -58,8 +58,19 @@ struct Broadcast: Codable {
         case embeds
     }
 
-    /// HTML-entity-decoded show title for display
-    var title: String { broadcastTitle.htmlEntityDecoded }
+    /// Decoded title, converted from ALL CAPS to Title Case when needed.
+    var title: String {
+        let decoded = broadcastTitle.htmlEntityDecoded
+        let letters = decoded.filter { $0.isLetter }
+        guard !letters.isEmpty, !letters.contains(where: { $0.isLowercase }) else { return decoded }
+        var result = decoded.capitalized
+        result = result.replacingOccurrences(of: "\\bNts\\b", with: "NTS", options: .regularExpression)
+        return result
+    }
+
+    var location: String? { embeds?.details?.locationLong }
+
+    var isRepeat: Bool { broadcastTitle.hasSuffix("(R)") }
 
     var artworkURL: URL? {
         let urlString = embeds?.details?.media?.pictureMediumLarge
@@ -110,7 +121,15 @@ struct BroadcastEmbeds: Codable {
 struct ShowDetails: Codable {
     let name: String?
     let description: String?
+    let locationLong: String?
     let media: ShowMedia?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case description
+        case locationLong = "location_long"
+        case media
+    }
 }
 
 struct ShowMedia: Codable {

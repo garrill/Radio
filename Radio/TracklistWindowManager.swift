@@ -16,34 +16,45 @@ class TracklistWindowManager {
     func open(channel: RadioChannel) {
         if let existing = windows[channel]?.window {
             existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
             return
         }
 
+        // Defer the expensive WKWebView + WebContent process creation off the
+        // current run-loop iteration so it doesn't block AVPlayer's audio thread.
+        DispatchQueue.main.async { [weak self] in
+            self?.createWindow(for: channel)
+        }
+    }
+
+    private func createWindow(for channel: RadioChannel) {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = Self.dataStore
 
         let webView = WKWebView(frame: .zero, configuration: config)
-        let url = URL(string: "https://www.nts.live/live-tracklist/\(channel.rawValue)")!
-        webView.load(URLRequest(url: url))
 
+        // NSWindow defer: true delays backing-store allocation until first draw,
+        // spreading the GPU setup cost instead of hitting it all at once.
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 350),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
-            defer: false
+            defer: true
         )
         window.title = "\(channel.label) — Live Tracklist"
         window.contentView = webView
         window.center()
         window.isReleasedWhenClosed = false
-        
+
         let delegate = WindowDelegate(channel: channel, manager: self)
         window.delegate = delegate
         windows[channel] = (window, delegate)
 
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+
+        // Load the URL after the window is on screen so WebKit's render pipeline
+        // initialises alongside the window rather than blocking before it appears.
+        let url = URL(string: "https://www.nts.live/live-tracklist/\(channel.rawValue)")!
+        webView.load(URLRequest(url: url))
     }
 
     fileprivate func windowClosed(channel: RadioChannel) {
