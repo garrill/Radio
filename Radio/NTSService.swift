@@ -8,9 +8,11 @@ class NTSService: ObservableObject {
     @Published var isRefreshing = false
 
     private var pollingTask: Task<Void, Never>?
+    private var fetchTask: Task<Void, Never>?
     private let apiURL = URL(string: "https://www.nts.live/api/v2/live")!
 
     func startPolling() {
+        pollingTask?.cancel() // guard against duplicate calls
         fetch()
         pollingTask = Task {
             while !Task.isCancelled {
@@ -32,8 +34,15 @@ class NTSService: ObservableObject {
     }
 
     func fetch() {
+        // Drop the request if one is already in flight to prevent races
+        guard fetchTask == nil || fetchTask!.isCancelled else { return }
         if channels.isEmpty { isLoading = true }
-        Task {
+        fetchTask = Task {
+            defer {
+                fetchTask = nil
+                isLoading = false
+                isRefreshing = false
+            }
             do {
                 var request = URLRequest(url: apiURL)
                 request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
@@ -43,8 +52,6 @@ class NTSService: ObservableObject {
             } catch {
                 // Silently fail — keep showing last known data
             }
-            isLoading = false
-            isRefreshing = false
         }
     }
 }

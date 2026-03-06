@@ -61,8 +61,9 @@ struct Broadcast: Codable {
     /// Decoded title, converted from ALL CAPS to Title Case when needed.
     var title: String {
         let decoded = broadcastTitle.htmlEntityDecoded
-        let letters = decoded.filter { $0.isLetter }
-        guard !letters.isEmpty, !letters.contains(where: { $0.isLowercase }) else { return decoded }
+        // contains(where:) short-circuits — avoids allocating a filtered array
+        guard decoded.contains(where: { $0.isLetter }),
+              !decoded.contains(where: { $0.isLowercase }) else { return decoded }
         var result = decoded.capitalized
         result = result.replacingOccurrences(of: "\\bNts\\b", with: "NTS", options: .regularExpression)
         return result
@@ -89,14 +90,6 @@ struct Broadcast: Codable {
     var startDate: Date? { Self.iso.date(from: startTimestamp) }
     var endDate: Date? { Self.iso.date(from: endTimestamp) }
 
-    var timeRange: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        fmt.timeZone = .current
-        guard let start = startDate, let end = endDate else { return "" }
-        return "\(fmt.string(from: start)) – \(fmt.string(from: end))"
-    }
-
     var progress: Double {
         guard let start = startDate, let end = endDate else { return 0 }
         let total = end.timeIntervalSince(start)
@@ -105,12 +98,16 @@ struct Broadcast: Codable {
         return max(0, min(1, elapsed / total))
     }
 
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.timeZone = .current
+        return f
+    }()
+
     func formattedTime(_ date: Date?) -> String {
         guard let date else { return "" }
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        fmt.timeZone = .current
-        return fmt.string(from: date)
+        return Self.timeFormatter.string(from: date)
     }
 }
 
@@ -119,31 +116,23 @@ struct BroadcastEmbeds: Codable {
 }
 
 struct ShowDetails: Codable {
-    let name: String?
-    let description: String?
     let locationLong: String?
     let media: ShowMedia?
 
     enum CodingKeys: String, CodingKey {
-        case name
-        case description
         case locationLong = "location_long"
         case media
     }
 }
 
 struct ShowMedia: Codable {
-    let pictureLarge: String?
     let pictureMediumLarge: String?
     let pictureMedium: String?
     let pictureSmall: String?
-    let pictureThumb: String?
 
     enum CodingKeys: String, CodingKey {
-        case pictureLarge = "picture_large"
         case pictureMediumLarge = "picture_medium_large"
         case pictureMedium = "picture_medium"
         case pictureSmall = "picture_small"
-        case pictureThumb = "picture_thumb"
     }
 }

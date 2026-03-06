@@ -206,9 +206,6 @@ struct ChannelRow: View {
         }
         .frame(width: 80, height: 80)
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .onTapGesture {
-            player.toggle(channel: channel, broadcast: currentBroadcast)
-        }
         .animation(.easeInOut(duration: 0.12), value: isHovered)
         .animation(.easeInOut(duration: 0.12), value: isPlaying)
         .animation(.easeInOut(duration: 0.12), value: isBuffering)
@@ -269,29 +266,33 @@ struct ChannelRow: View {
     // MARK: Progress Bar
 
     private func progressBar(for broadcast: Broadcast) -> some View {
-        VStack(spacing: 3) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(.secondary.opacity(0.15))
-                        .frame(height: 3)
-                    Capsule()
-                        .fill(isPlaying ? Color.accentColor : Color.secondary.opacity(0.45))
-                        .frame(width: geo.size.width * broadcast.progress, height: 3)
+        // TimelineView re-renders every 20 s so progress advances smoothly
+        // without depending on the 30 s API poll cycle.
+        TimelineView(.periodic(from: .now, by: 20)) { _ in
+            VStack(spacing: 3) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(.secondary.opacity(0.15))
+                            .frame(height: 3)
+                        Capsule()
+                            .fill(isPlaying ? Color.accentColor : Color.secondary.opacity(0.45))
+                            .frame(width: geo.size.width * broadcast.progress, height: 3)
+                    }
                 }
-            }
-            .frame(height: 3)
+                .frame(height: 3)
 
-            HStack {
-                Text(broadcast.formattedTime(broadcast.startDate))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                    .monospacedDigit()
-                Spacer()
-                Text(broadcast.formattedTime(broadcast.endDate))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                    .monospacedDigit()
+                HStack {
+                    Text(broadcast.formattedTime(broadcast.startDate))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                    Spacer()
+                    Text(broadcast.formattedTime(broadcast.endDate))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                }
             }
         }
         .padding(.horizontal, 14)
@@ -375,10 +376,12 @@ struct MarqueeText: View {
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .fixedSize()
-            // Measure the actual SwiftUI-rendered width (respects fontWidth env, screen scale, etc.)
+            // Measure actual SwiftUI-rendered width; re-measure if the text changes.
             .background(
                 GeometryReader { geo in
-                    Color.clear.onAppear { naturalWidth = geo.size.width }
+                    Color.clear
+                        .onAppear { naturalWidth = geo.size.width }
+                        .onChange(of: text) { naturalWidth = geo.size.width }
                 }
             )
             .offset(x: animate ? -overflow : 0)
@@ -387,12 +390,11 @@ struct MarqueeText: View {
                 alignment: .leading
             )
             .clipped()
-            .task(id: overflow > 1) {
-                guard overflow > 1 else {
-                    animate = false
-                    return
-                }
+            .task(id: text) {
+                // Reset and wait one tick for the onChange measurement to settle
                 animate = false
+                try? await Task.sleep(for: .milliseconds(50))
+                guard overflow > 1, !Task.isCancelled else { return }
                 let duration = max(2.0, Double(overflow) / 20)
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(2))

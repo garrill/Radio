@@ -14,10 +14,13 @@ enum RadioChannel: Int, CaseIterable, Identifiable {
 
     var streamURL: URL {
         switch self {
-        case .one: URL(string: "http://stream-relay-geo.ntslive.net/stream")!
-        case .two: URL(string: "http://stream-relay-geo.ntslive.net/stream2")!
+        case .one: Self.streamOneURL
+        case .two: Self.streamTwoURL
         }
     }
+
+    private static let streamOneURL = URL(string: "http://stream-relay-geo.ntslive.net/stream")!
+    private static let streamTwoURL = URL(string: "http://stream-relay-geo.ntslive.net/stream2")!
 
     var label: String {
         switch self {
@@ -44,6 +47,8 @@ class RadioPlayer: ObservableObject {
 
     private var player: AVPlayer?
     private var timeControlObserver: NSKeyValueObservation?
+    private var itemStatusObserver: NSKeyValueObservation?
+    private var artworkTask: Task<Void, Never>?
     // Keeps the last broadcast so media key play can restore context
     private var lastBroadcast: Broadcast?
     private var lastChannel: RadioChannel?
@@ -66,9 +71,13 @@ class RadioPlayer: ObservableObject {
         player?.pause()
         timeControlObserver?.invalidate()
         timeControlObserver = nil
+        itemStatusObserver?.invalidate()
+        itemStatusObserver = nil
         player = nil
         playingChannel = nil
         isBuffering = false
+        artworkTask?.cancel()
+        artworkTask = nil
         #if os(macOS)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         MPNowPlayingInfoCenter.default().playbackState = .stopped
@@ -91,6 +100,13 @@ class RadioPlayer: ObservableObject {
             }
         }
 
+        // Stop cleanly if the stream item fails (network loss, bad URL, server error)
+        itemStatusObserver = item.observe(\.status, options: [.new]) { [weak self] playerItem, _ in
+            if playerItem.status == .failed {
+                Task { @MainActor [weak self] in self?.stop() }
+            }
+        }
+
         newPlayer.play()
 
         #if os(macOS)
@@ -102,43 +118,52 @@ class RadioPlayer: ObservableObject {
     private func setupRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
 
+        // MPRemoteCommandCenter fires on an unspecified thread.
+        // Dispatch to MainActor before touching any @MainActor-isolated state.
         center.togglePlayPauseCommand.isEnabled = true
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            if self.playingChannel != nil {
-                self.stop()
-            } else {
-                let ch = self.lastChannel ?? .one
-                self.play(channel: ch, broadcast: self.lastBroadcast)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.playingChannel != nil {
+                    self.stop()
+                } else {
+                    self.play(channel: self.lastChannel ?? .one, broadcast: self.lastBroadcast)
+                }
             }
             return .success
         }
 
         center.playCommand.isEnabled = true
         center.playCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            let ch = self.playingChannel ?? self.lastChannel ?? .one
-            self.play(channel: ch, broadcast: self.lastBroadcast)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.play(channel: self.playingChannel ?? self.lastChannel ?? .one,
+                          broadcast: self.lastBroadcast)
+            }
             return .success
         }
 
         center.pauseCommand.isEnabled = true
         center.pauseCommand.addTarget { [weak self] _ in
-            self?.stop()
+            Task { @MainActor [weak self] in self?.stop() }
             return .success
         }
 
         center.nextTrackCommand.isEnabled = true
         center.nextTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            self.play(channel: (self.playingChannel ?? .one).next)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.play(channel: (self.playingChannel ?? .one).next)
+            }
             return .success
         }
 
         center.previousTrackCommand.isEnabled = true
         center.previousTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            self.play(channel: (self.playingChannel ?? .two).previous)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.play(channel: (self.playingChannel ?? .two).previous)
+            }
             return .success
         }
     }
@@ -153,11 +178,14 @@ class RadioPlayer: ObservableObject {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = .playing
 
-        // Fetch artwork asynchronously and update
+        // Fetch artwork asynchronously; cancel any previous fetch first.
+        artworkTask?.cancel()
         guard let artworkURL = broadcast?.artworkURL else { return }
-        Task {
+        artworkTask = Task { [weak self, channel] in
             guard let (data, _) = try? await URLSession.shared.data(from: artworkURL),
-                  let image = NSImage(data: data) else { return }
+                  !Task.isCancelled,
+                  let image = NSImage(data: data),
+                  self?.playingChannel == channel else { return }
             let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in image }
             info[MPMediaItemPropertyArtwork] = artwork
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
