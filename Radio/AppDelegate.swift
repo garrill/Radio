@@ -5,7 +5,7 @@ import Combine
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    // Shared model objects — owned here, passed into SwiftUI via environmentObject
+    /// Shared model objects — owned here, passed into SwiftUI via environmentObject
     let player = RadioPlayer()
     let ntsService = NTSService()
 
@@ -23,8 +23,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         observePlayingChannel()
         ntsService.startPolling()
         player.setup()
-        // Open the menu automatically on launch so it can be triggered via app launcher shortcut
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        /// Open the menu automatically on launch so it can be triggered via app launcher shortcut
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.showPanel()
         }
     }
@@ -60,8 +60,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.level = .popUpMenu
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.isReleasedWhenClosed = false
+        panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
     }
 
@@ -69,16 +70,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button,
               let buttonWindow = button.window else { return }
 
-        // Size panel to fit content
+        // Force SwiftUI to complete its layout pass so preferredContentSize is valid.
+        // Without this, applicationDidBecomeActive can call showPanel() before the
+        // first render, resulting in a zero size and a mispositioned panel.
+        hostingController.view.layoutSubtreeIfNeeded()
+
         let size = hostingController.preferredContentSize
+        // Guard against a pre-layout zero size — the asyncAfter will retry.
+        guard size.width > 0, size.height > 0 else { return }
         panel.setContentSize(size)
 
-        // Position below the status item
-        let buttonScreenFrame = buttonWindow.convertToScreen(button.bounds)
-        let x = buttonScreenFrame.midX - size.width / 2
-        let y = buttonScreenFrame.minY - size.height - 4
+        // NSWindow.frame is already in screen coordinates — no conversion needed.
+        // The status item's window frame IS the button's screen rect.
+        let buttonFrame = buttonWindow.frame
+
+        // On launch the system assigns a temporary placeholder position to status items
+        // before settling them at their real location. If the button frame doesn't
+        // intersect any real screen it hasn't been placed yet — bail out and let the
+        // asyncAfter in applicationDidFinishLaunching retry.
+        guard NSScreen.screens.contains(where: { $0.frame.intersects(buttonFrame) }) else { return }
+
+        var x = buttonFrame.midX - size.width / 2
+        let y = buttonFrame.minY - size.height + 17
+
+        // Clamp horizontally so the panel never goes off-screen
+        if let screen = buttonWindow.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            x = max(visible.minX + 4, min(x, visible.maxX - size.width - 4))
+        }
         panel.setFrameOrigin(NSPoint(x: x, y: y))
 
+        player.isPanelVisible = true
+        ntsService.startPolling() // refresh data and restart 30 s poll
         panel.makeKeyAndOrderFront(nil)
 
         // Close when clicking anywhere outside
@@ -90,11 +113,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func closePanel() {
-        panel.orderOut(nil)
         if let monitor = outsideClickMonitor {
             NSEvent.removeMonitor(monitor)
             outsideClickMonitor = nil
         }
+        player.isPanelVisible = false
+        ntsService.stopPolling() // no background work while panel is hidden
+        panel.orderOut(nil)
     }
 
     // MARK: - Status Item

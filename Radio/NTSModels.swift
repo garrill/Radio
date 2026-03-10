@@ -11,6 +11,7 @@ private extension String {
         s = s.replacingOccurrences(of: "&quot;", with: "\"")
         s = s.replacingOccurrences(of: "&#39;", with: "'")
         s = s.replacingOccurrences(of: "&apos;", with: "'")
+        s = s.replacingOccurrences(of: "&#039;", with: "’")
         return s
     }
 }

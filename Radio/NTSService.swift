@@ -1,14 +1,17 @@
 import Foundation
 import Combine
+import Network
 
 @MainActor
 class NTSService: ObservableObject {
     @Published var channels: [ChannelData] = []
     @Published var isLoading = false
     @Published var isRefreshing = false
+    @Published var isOffline = false
 
     private var pollingTask: Task<Void, Never>?
     private var fetchTask: Task<Void, Never>?
+    private var pathMonitor: NWPathMonitor?
     private let apiURL = URL(string: "https://www.nts.live/api/v2/live")!
 
     func startPolling() {
@@ -20,11 +23,25 @@ class NTSService: ObservableObject {
                 if !Task.isCancelled { fetch() }
             }
         }
+
+        let monitor = NWPathMonitor()
+        pathMonitor = monitor
+        monitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let wasOffline = self.isOffline
+                self.isOffline = path.status != .satisfied
+                if wasOffline && !self.isOffline { self.fetch() }
+            }
+        }
+        monitor.start(queue: DispatchQueue(label: "nts.network.monitor"))
     }
 
     func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
+        pathMonitor?.cancel()
+        pathMonitor = nil
     }
 
     /// Called by the Refresh button — shows pulsing indicator.

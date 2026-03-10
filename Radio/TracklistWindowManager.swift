@@ -35,7 +35,7 @@ class TracklistWindowManager {
         // NSWindow defer: true delays backing-store allocation until first draw,
         // spreading the GPU setup cost instead of hitting it all at once.
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 350),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 350),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: true

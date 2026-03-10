@@ -44,6 +44,7 @@ enum RadioChannel: Int, CaseIterable, Identifiable {
 class RadioPlayer: ObservableObject {
     @Published var playingChannel: RadioChannel?
     @Published var isBuffering = false
+    @Published var isPanelVisible = false
 
     private var player: AVPlayer?
     private var timeControlObserver: NSKeyValueObservation?
@@ -52,6 +53,7 @@ class RadioPlayer: ObservableObject {
     // Keeps the last broadcast so media key play can restore context
     private var lastBroadcast: Broadcast?
     private var lastChannel: RadioChannel?
+    private var reconnectAttempts = 0
 
     func setup() {
         #if os(macOS)
@@ -93,6 +95,7 @@ class RadioPlayer: ObservableObject {
         isBuffering = true
         lastChannel = channel
         lastBroadcast = broadcast
+        reconnectAttempts = 0
 
         timeControlObserver = newPlayer.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
             Task { @MainActor [weak self] in
@@ -100,10 +103,20 @@ class RadioPlayer: ObservableObject {
             }
         }
 
-        // Stop cleanly if the stream item fails (network loss, bad URL, server error)
+        // Stop cleanly if the stream item fails; retry once after 3 s before giving up.
         itemStatusObserver = item.observe(\.status, options: [.new]) { [weak self] playerItem, _ in
             if playerItem.status == .failed {
-                Task { @MainActor [weak self] in self?.stop() }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if self.reconnectAttempts < 1 {
+                        self.reconnectAttempts += 1
+                        try? await Task.sleep(for: .seconds(3))
+                        guard self.playingChannel != nil else { return } // user stopped manually
+                        self.play(channel: self.lastChannel!, broadcast: self.lastBroadcast)
+                    } else {
+                        self.stop()
+                    }
+                }
             }
         }
 

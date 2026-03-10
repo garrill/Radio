@@ -8,9 +8,23 @@ struct ContentView: View {
     @EnvironmentObject var ntsService: NTSService
 
     @State private var pulseOpacity: Double = 1.0
+    @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
 
     var body: some View {
         VStack(spacing: 0) {
+            if ntsService.isOffline {
+                HStack(spacing: 6) {
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 11))
+                    Text("No internet connection")
+                        .font(.system(size: 12))
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                Divider()
+            }
+
             if ntsService.isLoading {
                 loadingView
             } else {
@@ -34,8 +48,15 @@ struct ContentView: View {
                 MenuRowButton(icon: "arrow.clockwise", label: "Refresh") {
                     ntsService.fetchManual()
                 }
-                MenuRowButton(icon: "bubble.left", label: "Chatroom") {
-                    openChatroom()
+                if chatroomLinkType != "hidden" {
+                    MenuRowButton(icon: "bubble.left", label: "Chatroom") {
+                        openChatroom()
+                    }
+                }
+                MenuRowButton(icon: "gear", label: "Settings") {
+                    #if os(macOS)
+                    SettingsWindowManager.shared.open()
+                    #endif
                 }
                 MenuRowButton(icon: "xmark.rectangle", label: "Quit Radio") {
                     #if os(macOS)
@@ -48,12 +69,19 @@ struct ContentView: View {
             
         }
         .frame(width: 280)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 6)
+        .padding(18) // Room for shadow to render beyond panel edge
     }
 
     private func openChatroom() {
         #if os(macOS)
-        let url = URL(string: "https://discord.com/channels/909834111592591421/933364043459227708")!
+        let url: URL
+        if chatroomLinkType == "app" {
+            url = URL(string: "discord://discord.com/channels/909834111592591421/933364043459227708")!
+        } else {
+            url = URL(string: "https://discord.com/channels/909834111592591421/933364043459227708")!
+        }
         NSWorkspace.shared.open(url)
         #endif
     }
@@ -73,7 +101,7 @@ struct ContentView: View {
                     Divider()
                         .padding(.horizontal, 14)
                 }
-            }
+            }.padding(.top, 2)
         }
     }
 
@@ -98,6 +126,7 @@ struct ChannelRow: View {
     let data: ChannelData?
 
     @EnvironmentObject var player: RadioPlayer
+    @AppStorage("showTracklisting") private var showTracklisting = true
     @State private var isHovered = false
     @State private var isTracklistHovered = false
 
@@ -115,7 +144,7 @@ struct ChannelRow: View {
                     HStack(spacing: 0) {
                         channelBadge
                         Spacer()
-                        tracklistButton
+                        if showTracklisting { tracklistButton }
                     }
 
                     if let broadcast = currentBroadcast {
@@ -220,7 +249,7 @@ struct ChannelRow: View {
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.secondary)
             } else {
-                LiveIndicator()
+                LiveIndicator(isActive: player.isPanelVisible)
             }
             
 
@@ -237,7 +266,7 @@ struct ChannelRow: View {
         .padding(.leading, 6)
         .padding(.trailing, 8)
         .padding(.vertical, 2)
-        .background(.secondary.opacity(0.15), in: Capsule())
+        .background(.secondary.opacity(0.3), in: Capsule())
     }
 
     // MARK: Tracklist Button
@@ -266,37 +295,47 @@ struct ChannelRow: View {
     // MARK: Progress Bar
 
     private func progressBar(for broadcast: Broadcast) -> some View {
-        // TimelineView re-renders every 20 s so progress advances smoothly
-        // without depending on the 30 s API poll cycle.
-        TimelineView(.periodic(from: .now, by: 20)) { _ in
-            VStack(spacing: 3) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(.secondary.opacity(0.15))
-                            .frame(height: 3)
-                        Capsule()
-                            .fill(isPlaying ? Color.accentColor : Color.secondary.opacity(0.45))
-                            .frame(width: geo.size.width * broadcast.progress, height: 3)
-                    }
+        // Only tick the TimelineView while the panel is visible — avoids
+        // waking the SwiftUI render tree every 20 s in the background.
+        Group {
+            if player.isPanelVisible {
+                TimelineView(.periodic(from: .now, by: 20)) { _ in
+                    progressBarContent(for: broadcast)
                 }
-                .frame(height: 3)
-
-                HStack {
-                    Text(broadcast.formattedTime(broadcast.startDate))
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                        .monospacedDigit()
-                    Spacer()
-                    Text(broadcast.formattedTime(broadcast.endDate))
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                        .monospacedDigit()
-                }
+            } else {
+                progressBarContent(for: broadcast)
             }
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
+    }
+
+    private func progressBarContent(for broadcast: Broadcast) -> some View {
+        VStack(spacing: 3) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(.secondary.opacity(0.15))
+                        .frame(height: 3)
+                    Capsule()
+                        .fill(isPlaying ? Color.accentColor : Color.secondary.opacity(0.45))
+                        .frame(width: geo.size.width * broadcast.progress, height: 3)
+                }
+            }
+            .frame(height: 3)
+
+            HStack {
+                Text(broadcast.formattedTime(broadcast.startDate))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+                Spacer()
+                Text(broadcast.formattedTime(broadcast.endDate))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+            }
+        }
     }
 
     // MARK: Bottom Row
@@ -410,19 +449,24 @@ struct MarqueeText: View {
 // MARK: - Live Indicator
 
 struct LiveIndicator: View {
+    let isActive: Bool
     @State private var pulse = false
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(Color.red.opacity(pulse ? 0.0 : 0.35))
-                .frame(width: 8, height: 8)
-                .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+            if isActive {
+                Circle()
+                    .fill(Color.red.opacity(pulse ? 0.0 : 0.35))
+                    .frame(width: 8, height: 8)
+                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+                    .onAppear { pulse = true }
+                    .onDisappear { pulse = false }
+            }
             Circle()
                 .fill(Color.red)
                 .frame(width: 5, height: 5)
         }
-        .onAppear { pulse = true }
+        .onAppear { pulse = isActive }
     }
 }
 
