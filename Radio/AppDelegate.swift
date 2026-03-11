@@ -102,7 +102,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         player.isPanelVisible = true
         ntsService.startPolling() // refresh data and restart 30 s poll
-        panel.makeKeyAndOrderFront(nil)
+//        panel.makeKeyAndOrderFront(nil)
+        panel.orderFront(nil)
 
         // Close when clicking anywhere outside
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
@@ -151,11 +152,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] channel in
                 guard let self, let button = self.statusItem.button else { return }
                 if let channel {
-                    let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+                    let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .medium)
                     let img = NSImage(
                         systemSymbolName: channel.menuBarSymbol,
                         accessibilityDescription: channel.label
                     )?.withSymbolConfiguration(config)
+                    img?.size = NSSize(width: 18, height: 18)
                     img?.isTemplate = true
                     button.image = img
                 } else {

@@ -1,31 +1,5 @@
 #if os(macOS)
 import SwiftUI
-import AppKit
-
-// MARK: - Window Manager
-
-@MainActor
-class SettingsWindowManager {
-    static let shared = SettingsWindowManager()
-    private var window: NSWindow?
-
-    func open() {
-        if let window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-        let controller = NSHostingController(rootView: SettingsView())
-        let w = NSWindow(contentViewController: controller)
-        w.title = "Radio Settings"
-        w.styleMask = [.titled, .closable]
-        w.isReleasedWhenClosed = false
-        w.center()
-        w.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        window = w
-    }
-}
 
 // MARK: - Root
 
@@ -38,7 +12,6 @@ struct SettingsView: View {
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
         .padding()
-        .frame(minWidth: 380, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
     }
 }
 
@@ -47,19 +20,21 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
     @AppStorage("showTracklisting") private var showTracklisting = true
+    @AppStorage("artworkSize") private var artworkSize = "medium"
 
     var body: some View {
         Form {
-            Section("Chatroom") {
-                Picker("Open in", selection: $chatroomLinkType) {
+            Section("UI") {
+                Picker("Chatroom", selection: $chatroomLinkType) {
                     Text("Web Browser").tag("web")
                     Text("Discord App").tag("app")
                     Text("Hide").tag("hidden")
                 }
-                .pickerStyle(.radioGroup)
-            }
-
-            Section("Tracklist") {
+                Picker("Artwork size", selection: $artworkSize) {
+                    Text("Small").tag("small")
+                    Text("Medium").tag("medium")
+                    Text("Large").tag("large")
+                }
                 Toggle("Show tracklist button", isOn: $showTracklisting)
             }
         }

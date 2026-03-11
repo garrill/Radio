@@ -10,7 +10,8 @@ struct RadioApp: App {
         #if os(macOS)
         // Settings scene keeps the app alive without a dock window.
         // LSUIElement=true in Info.plist hides the dock icon.
-        Settings { EmptyView() }
+        Settings { SettingsView() }
+            .defaultSize(width: 420, height: 460)
         #else
         WindowGroup {
             Text("NTS Radio requires macOS")

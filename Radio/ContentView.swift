@@ -53,11 +53,9 @@ struct ContentView: View {
                         openChatroom()
                     }
                 }
-                MenuRowButton(icon: "gear", label: "Settings") {
-                    #if os(macOS)
-                    SettingsWindowManager.shared.open()
-                    #endif
-                }
+                #if os(macOS)
+                SettingsMenuButton()
+                #endif
                 MenuRowButton(icon: "xmark.rectangle", label: "Quit Radio") {
                     #if os(macOS)
                     NSApplication.shared.terminate(nil)
@@ -127,6 +125,15 @@ struct ChannelRow: View {
 
     @EnvironmentObject var player: RadioPlayer
     @AppStorage("showTracklisting") private var showTracklisting = true
+    @AppStorage("artworkSize") private var artworkSize = "medium"
+
+    private var artworkDimension: CGFloat {
+        switch artworkSize {
+        case "small": return 66
+        case "large": return 120
+        default: return 80
+        }
+    }
     @State private var isHovered = false
     @State private var isTracklistHovered = false
 
@@ -144,7 +151,7 @@ struct ChannelRow: View {
                     HStack(spacing: 0) {
                         channelBadge
                         Spacer()
-                        if showTracklisting { tracklistButton }
+                        if showTracklisting && artworkSize != "large" { tracklistButton }
                     }
 
                     if let broadcast = currentBroadcast {
@@ -162,6 +169,8 @@ struct ChannelRow: View {
                     }
 
                     Spacer(minLength: 0)
+
+                    if showTracklisting && artworkSize == "large" { tracklistButton }
                 }
             }
             .padding(.horizontal, 14)
@@ -189,7 +198,7 @@ struct ChannelRow: View {
         ZStack {
             Rectangle()
                 .fill(.secondary.opacity(0.12))
-                .frame(width: 80, height: 80)
+                .frame(width: artworkDimension, height: artworkDimension)
 
             if let url = currentBroadcast?.artworkURL {
                 AsyncImage(url: url) { phase in
@@ -199,14 +208,14 @@ struct ChannelRow: View {
                             .aspectRatio(contentMode: .fill)
                     }
                 }
-                .frame(width: 80, height: 80)
+                .frame(width: artworkDimension, height: artworkDimension)
             }
 
             // Dark scrim whenever there's an overlay to show
             if isBuffering || isPlaying || isHovered {
                 Rectangle()
                     .fill(.black.opacity(0.45))
-                    .frame(width: 80, height: 80)
+                    .frame(width: artworkDimension, height: artworkDimension)
             }
 
             if isBuffering {
@@ -233,7 +242,7 @@ struct ChannelRow: View {
                     .offset(x: 1.5)
             }
         }
-        .frame(width: 80, height: 80)
+        .frame(width: artworkDimension, height: artworkDimension)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .animation(.easeInOut(duration: 0.12), value: isHovered)
         .animation(.easeInOut(duration: 0.12), value: isPlaying)
@@ -245,7 +254,7 @@ struct ChannelRow: View {
     private var channelBadge: some View {
         HStack(spacing: 2) {
             if currentBroadcast?.isRepeat == true {
-                Image(systemName: "repeat.circle.fill")
+                Image(systemName: "repeat")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.secondary)
             } else {
@@ -396,6 +405,41 @@ struct MenuRowButton: View {
         .onHover { isHovered = $0 }
     }
 }
+
+#if os(macOS)
+struct SettingsMenuButton: View {
+    @State private var isHovered = false
+
+    var body: some View {
+        SettingsLink {
+            HStack(spacing: 8) {
+                Image(systemName: "gear")
+                    .font(.system(size: 11))
+                    .frame(width: 14)
+                Text("Settings")
+                    .font(.system(size: 12))
+                Spacer()
+            }
+            .foregroundStyle(isHovered ? Color.white : Color.primary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(isHovered ? Color.accentColor : Color.clear)
+            )
+            .padding(.horizontal, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .simultaneousGesture(TapGesture().onEnded {
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        })
+    }
+}
+#endif
 
 // MARK: - Marquee Text
 
