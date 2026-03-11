@@ -44,10 +44,17 @@ class NTSService: ObservableObject {
         pathMonitor = nil
     }
 
-    /// Called by the Refresh button — shows pulsing indicator.
+    /// Called by the Refresh button — shows pulsing indicator for at least 1 second.
     func fetchManual() {
+        guard !isRefreshing else { return }
         isRefreshing = true
+        fetchTask?.cancel()
+        fetchTask = nil
         fetch()
+        Task {
+            try? await Task.sleep(for: .seconds(1.9))
+            isRefreshing = false
+        }
     }
 
     func fetch() {
@@ -58,7 +65,6 @@ class NTSService: ObservableObject {
             defer {
                 fetchTask = nil
                 isLoading = false
-                isRefreshing = false
             }
             do {
                 var request = URLRequest(url: apiURL)

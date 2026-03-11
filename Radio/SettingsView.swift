@@ -1,5 +1,21 @@
 #if os(macOS)
 import SwiftUI
+import AppKit
+
+// MARK: - Window button hider
+
+private class _ButtonHiderView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window?.standardWindowButton(.zoomButton)?.isHidden = true
+    }
+}
+
+private struct WindowButtonHider: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { _ButtonHiderView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
 
 // MARK: - Root
 
@@ -11,7 +27,7 @@ struct SettingsView: View {
             AboutSettingsView()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .padding()
+        .background(WindowButtonHider().frame(width: 0, height: 0))
     }
 }
 
@@ -24,18 +40,18 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section("UI") {
-                Picker("Chatroom", selection: $chatroomLinkType) {
-                    Text("Web Browser").tag("web")
-                    Text("Discord App").tag("app")
-                    Text("Hide").tag("hidden")
+            Section("User interface") {
+                Picker("Chatroom link", selection: $chatroomLinkType) {
+                    Text("Open in browser").tag("web")
+                    Text("Open in Discord").tag("app")
+                    Text("Hide link").tag("hidden")
                 }
                 Picker("Artwork size", selection: $artworkSize) {
                     Text("Small").tag("small")
                     Text("Medium").tag("medium")
                     Text("Large").tag("large")
                 }
-                Toggle("Show tracklist button", isOn: $showTracklisting)
+                Toggle("Show tracklist link", isOn: $showTracklisting)
             }
         }
         .formStyle(.grouped)
@@ -56,13 +72,15 @@ struct AboutSettingsView: View {
             Text(appName)
                 .font(.title3.weight(.semibold))
 
-            VStack(spacing: 3) {
+            HStack(spacing: 6) {
                 Text("Version \(appVersion)")
                     .foregroundStyle(.secondary)
-                Text("Build \(buildNumber)")
-                    .font(.caption)
+                Text("(\(buildNumber))")
                     .foregroundStyle(.tertiary)
             }
+            
+            Text("")
+                
         }
         .padding(.vertical, 40)
         .frame(width: 380)
