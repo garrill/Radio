@@ -50,6 +50,7 @@ class RadioPlayer: ObservableObject {
     private var timeControlObserver: NSKeyValueObservation?
     private var itemStatusObserver: NSKeyValueObservation?
     private var artworkTask: Task<Void, Never>?
+    private var fadeTask: Task<Void, Never>?
     // Keeps the last broadcast so media key play can restore context
     private var lastBroadcast: Broadcast?
     private var lastChannel: RadioChannel?
@@ -63,13 +64,34 @@ class RadioPlayer: ObservableObject {
 
     func toggle(channel: RadioChannel, broadcast: Broadcast? = nil) {
         if playingChannel == channel {
-            stop()
+            fadeOutAndStop()
         } else {
-            play(channel: channel, broadcast: broadcast)
+            fadeOutAndStop { [weak self] in
+                self?.play(channel: channel, broadcast: broadcast)
+            }
+        }
+    }
+
+    /// Fades volume to zero over ~300 ms then stops. Calls `completion` when done.
+    /// Used for user-initiated stops and app quit. `stop()` remains immediate for internal use.
+    func fadeOutAndStop(completion: (@MainActor () -> Void)? = nil) {
+        guard let p = player else { stop(); completion?(); return }
+        fadeTask?.cancel()
+        let startVolume = p.volume
+        fadeTask = Task { @MainActor [weak self] in
+            for i in stride(from: 11, through: 0, by: -1) {
+                guard !Task.isCancelled else { break }
+                p.volume = startVolume * Float(i) / 12
+                try? await Task.sleep(for: .milliseconds(25))
+            }
+            self?.stop()
+            completion?()
         }
     }
 
     func stop() {
+        fadeTask?.cancel()
+        fadeTask = nil
         player?.pause()
         timeControlObserver?.invalidate()
         timeControlObserver = nil
@@ -138,7 +160,7 @@ class RadioPlayer: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if self.playingChannel != nil {
-                    self.stop()
+                    self.fadeOutAndStop()
                 } else {
                     self.play(channel: self.lastChannel ?? .one, broadcast: self.lastBroadcast)
                 }

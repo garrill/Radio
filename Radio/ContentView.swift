@@ -62,14 +62,14 @@ struct ContentView: View {
                     #endif
                 }
             }
-            .padding(.top, 4)
-            .padding(.bottom, 4) // Extra bottom padding prevents corner-radius clipping
+            .padding(.top, 5)
+            .padding(.bottom, 5) // Extra bottom padding prevents corner-radius clipping
             
         }
         .frame(width: 280)
         .glassEffect(.regular, in: .rect(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 6)
-        .padding(18) // Room for shadow to render beyond panel edge
+        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
+        .padding(24) // Room for shadow to render beyond panel edge
     }
 
     private func openChatroom() {
@@ -159,7 +159,6 @@ struct ChannelRow: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
                             .padding(.leading, 2)
                     } else {
                         Text("Loading…")
@@ -172,6 +171,7 @@ struct ChannelRow: View {
 
                     if showTracklisting && artworkSize == "large" { tracklistButton }
                 }
+                .frame(height: artworkDimension)
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
@@ -179,10 +179,14 @@ struct ChannelRow: View {
 
             if let broadcast = currentBroadcast {
                 progressBar(for: broadcast)
+            } else {
+                Color.clear.frame(height: 27)
             }
 
             if nextBroadcast != nil {
                 bottomRow
+            } else {
+                Color.clear.frame(height: 24)
             }
         }
         .onHover { isHovered = $0 }
@@ -377,6 +381,7 @@ struct ChannelRow: View {
 struct MenuRowButton: View {
     let icon: String
     let label: String
+    let shortcut: String?
     let action: () -> Void
 
     @State private var isHovered = false
@@ -395,8 +400,15 @@ struct MenuRowButton: View {
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
             .background(
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(isHovered ? Color.accentColor : Color.clear)
+                Group {
+                    if label == "Quit Radio" {
+                        UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 15, bottomTrailingRadius: 15, topTrailingRadius: 5)
+                            .fill(isHovered ? Color.accentColor : Color.clear)
+                    } else {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(isHovered ? Color.accentColor : Color.clear)
+                    }
+                }
             )
             .padding(.horizontal, 5)
             .contentShape(Rectangle())
@@ -433,8 +445,14 @@ struct SettingsMenuButton: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .simultaneousGesture(TapGesture().onEnded {
+            NSApp.activate(ignoringOtherApps: true)
+            // After SettingsLink shows/creates the window, bring it to front.
+            // NSPanel is our menu panel; windows with "Tracklist" in the title are tracklist windows.
+            // The settings window is the only remaining NSWindow.
             DispatchQueue.main.async {
-                NSApp.activate(ignoringOtherApps: true)
+                NSApp.windows
+                    .first { !($0 is NSPanel) && !$0.title.contains("Tracklist") }?
+                    .makeKeyAndOrderFront(nil)
             }
         })
     }

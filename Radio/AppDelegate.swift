@@ -27,15 +27,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.showPanel()
         }
+        /// Pre-warm the WebContent process so opening the tracklist during playback doesn't stutter
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            TracklistWindowManager.shared.preload()
+        }
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard player.playingChannel != nil else { return .terminateNow }
+        player.fadeOutAndStop {
+            NSApplication.shared.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !panel.isVisible { showPanel() }
         return false
-    }
-
-    func applicationDidBecomeActive(_ notification: Notification) {
-        if !panel.isVisible { showPanel() }
     }
 
     // MARK: - Panel
@@ -47,7 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 .environmentObject(ntsService)
         )
         hostingController = NSHostingController(rootView: content)
-        hostingController.sizingOptions = .preferredContentSize
+        hostingController.sizingOptions = []
 
         panel = NSPanel(
             contentRect: .zero,
@@ -70,30 +78,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button,
               let buttonWindow = button.window else { return }
 
-        // Force SwiftUI to complete its layout pass so preferredContentSize is valid.
-        // Without this, applicationDidBecomeActive can call showPanel() before the
-        // first render, resulting in a zero size and a mispositioned panel.
-        hostingController.view.layoutSubtreeIfNeeded()
-
-        let size = hostingController.preferredContentSize
-        // Guard against a pre-layout zero size — the asyncAfter will retry.
-        guard size.width > 0, size.height > 0 else { return }
+        let size = AppDelegate.panelSize(for: UserDefaults.standard.string(forKey: "artworkSize") ?? "medium")
         panel.setContentSize(size)
 
-        // NSWindow.frame is already in screen coordinates — no conversion needed.
-        // The status item's window frame IS the button's screen rect.
         let buttonFrame = buttonWindow.frame
-
         // On launch the system assigns a temporary placeholder position to status items
-        // before settling them at their real location. If the button frame doesn't
-        // intersect any real screen it hasn't been placed yet — bail out and let the
-        // asyncAfter in applicationDidFinishLaunching retry.
+        // before settling them at their real location — bail out and let the asyncAfter retry.
         guard NSScreen.screens.contains(where: { $0.frame.intersects(buttonFrame) }) else { return }
 
         var x = buttonFrame.midX - size.width / 2
-        let y = buttonFrame.minY - size.height + 17
+        let y = buttonFrame.minY - size.height + 24
 
-        // Clamp horizontally so the panel never goes off-screen
         if let screen = buttonWindow.screen ?? NSScreen.main {
             let visible = screen.visibleFrame
             x = max(visible.minX + 4, min(x, visible.maxX - size.width - 4))
@@ -101,16 +96,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
 
         player.isPanelVisible = true
-        ntsService.startPolling() // refresh data and restart 30 s poll
-//        panel.makeKeyAndOrderFront(nil)
+        ntsService.startPolling()
         panel.orderFront(nil)
 
-        // Close when clicking anywhere outside
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { [weak self] _ in
             self?.closePanel()
         }
+    }
+
+    private static func panelSize(for artworkSetting: String) -> NSSize {
+        let artwork: CGFloat = artworkSetting == "small" ? 66 : artworkSetting == "large" ? 120 : 80
+        // Row: top(12) + artwork + bottom(10) + progressBar(27) + nextUp(24) = artwork + 73
+        // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(100) + shadow-padding(36)
+        return NSSize(width: 316, height: artwork * 2 + 286)
     }
 
     private func closePanel() {
@@ -119,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             outsideClickMonitor = nil
         }
         player.isPanelVisible = false
-        ntsService.stopPolling() // no background work while panel is hidden
+        ntsService.stopPolling()
         panel.orderOut(nil)
     }
 

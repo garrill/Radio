@@ -3,37 +3,46 @@ import AppKit
 import WebKit
 
 /// Opens and manages persistent WKWebView windows for the NTS live tracklist.
-/// Uses a shared persistent WKWebsiteDataStore so the user only needs to log in once.
+/// Windows are kept alive after the user closes them so the WebContent process
+/// stays warm — preventing audio stutter on subsequent opens during playback.
 @MainActor
 class TracklistWindowManager {
     static let shared = TracklistWindowManager()
 
-    // One window per channel, kept alive so login cookies persist
-    private var windows: [RadioChannel: (window: NSWindow, delegate: WindowDelegate)] = [:]
+    private struct Entry {
+        let window: NSWindow
+        let webView: WKWebView
+        let delegate: WindowDelegate
+    }
 
+    private var entries: [RadioChannel: Entry] = [:]
     private static let dataStore = WKWebsiteDataStore.default()
 
-    func open(channel: RadioChannel) {
-        if let existing = windows[channel]?.window {
-            existing.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        // Defer the expensive WKWebView + WebContent process creation off the
-        // current run-loop iteration so it doesn't block AVPlayer's audio thread.
-        DispatchQueue.main.async { [weak self] in
-            self?.createWindow(for: channel)
+    /// Creates windows for all channels without loading any URLs.
+    /// Call this at launch to spin up the WebContent process before playback starts.
+    func preload() {
+        for channel in RadioChannel.allCases where entries[channel] == nil {
+            createEntry(for: channel)
         }
     }
 
-    private func createWindow(for channel: RadioChannel) {
+    func open(channel: RadioChannel) {
+        NSApp.activate(ignoringOtherApps: true)
+        let entry = entries[channel] ?? createEntry(for: channel)
+        if entry.webView.url == nil {
+            let url = URL(string: "https://www.nts.live/live-tracklist/\(channel.rawValue)")!
+            entry.webView.load(URLRequest(url: url))
+        }
+        entry.window.makeKeyAndOrderFront(nil)
+    }
+
+    @discardableResult
+    private func createEntry(for channel: RadioChannel) -> Entry {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = Self.dataStore
 
         let webView = WKWebView(frame: .zero, configuration: config)
 
-        // NSWindow defer: true delays backing-store allocation until first draw,
-        // spreading the GPU setup cost instead of hitting it all at once.
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 350),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -47,18 +56,10 @@ class TracklistWindowManager {
 
         let delegate = WindowDelegate(channel: channel, manager: self)
         window.delegate = delegate
-        windows[channel] = (window, delegate)
 
-        window.makeKeyAndOrderFront(nil)
-
-        // Load the URL after the window is on screen so WebKit's render pipeline
-        // initialises alongside the window rather than blocking before it appears.
-        let url = URL(string: "https://www.nts.live/live-tracklist/\(channel.rawValue)")!
-        webView.load(URLRequest(url: url))
-    }
-
-    fileprivate func windowClosed(channel: RadioChannel) {
-        windows.removeValue(forKey: channel)
+        let entry = Entry(window: window, webView: webView, delegate: delegate)
+        entries[channel] = entry
+        return entry
     }
 }
 
@@ -72,9 +73,8 @@ private class WindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        Task { @MainActor in
-            self.manager?.windowClosed(channel: self.channel)
-        }
+        // Window is intentionally kept alive (isReleasedWhenClosed = false)
+        // so the WebContent process stays warm for the next open.
     }
 }
 #endif
