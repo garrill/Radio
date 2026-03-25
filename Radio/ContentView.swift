@@ -67,7 +67,7 @@ struct ContentView: View {
             
         }
         .frame(width: 280)
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
         .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
         .padding(24) // Room for shadow to render beyond panel edge
     }
@@ -247,7 +247,7 @@ struct ChannelRow: View {
             }
         }
         .frame(width: artworkDimension, height: artworkDimension)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .animation(.easeInOut(duration: 0.12), value: isHovered)
         .animation(.easeInOut(duration: 0.12), value: isPlaying)
         .animation(.easeInOut(duration: 0.12), value: isBuffering)
@@ -381,7 +381,6 @@ struct ChannelRow: View {
 struct MenuRowButton: View {
     let icon: String
     let label: String
-    let shortcut: String?
     let action: () -> Void
 
     @State private var isHovered = false
@@ -402,7 +401,7 @@ struct MenuRowButton: View {
             .background(
                 Group {
                     if label == "Quit Radio" {
-                        UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 15, bottomTrailingRadius: 15, topTrailingRadius: 5)
+                        UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 13, bottomTrailingRadius: 13, topTrailingRadius: 5)
                             .fill(isHovered ? Color.accentColor : Color.clear)
                     } else {
                         RoundedRectangle(cornerRadius: 5)
