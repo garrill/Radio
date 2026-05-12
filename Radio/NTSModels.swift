@@ -11,7 +11,7 @@ private extension String {
         s = s.replacingOccurrences(of: "&quot;", with: "\"")
         s = s.replacingOccurrences(of: "&#39;", with: "'")
         s = s.replacingOccurrences(of: "&apos;", with: "'")
-        s = s.replacingOccurrences(of: "&#039;", with: "’")
+        s = s.replacingOccurrences(of: "&#039;", with: "'")
         return s
     }
 }
@@ -47,40 +47,13 @@ struct ChannelData: Codable {
 }
 
 struct Broadcast: Codable {
+    // Stored once at decode time — no repeated parsing on render
     let broadcastTitle: String
-    let startTimestamp: String
-    let endTimestamp: String
+    let startDate: Date?
+    let endDate: Date?
+    let title: String
+    let isRepeat: Bool
     let embeds: BroadcastEmbeds?
-
-    enum CodingKeys: String, CodingKey {
-        case broadcastTitle = "broadcast_title"
-        case startTimestamp = "start_timestamp"
-        case endTimestamp = "end_timestamp"
-        case embeds
-    }
-
-    /// Decoded title, converted from ALL CAPS to Title Case when needed.
-    var title: String {
-        let decoded = broadcastTitle.htmlEntityDecoded
-        // contains(where:) short-circuits — avoids allocating a filtered array
-        guard decoded.contains(where: { $0.isLetter }),
-              !decoded.contains(where: { $0.isLowercase }) else { return decoded }
-        var result = decoded.capitalized
-        result = result.replacingOccurrences(of: "\\bNts\\b", with: "NTS", options: .regularExpression)
-        return result
-    }
-
-    var location: String? { embeds?.details?.locationLong }
-
-    var isRepeat: Bool { broadcastTitle.hasSuffix("(R)") }
-
-    var artworkURL: URL? {
-        let urlString = embeds?.details?.media?.pictureMediumLarge
-            ?? embeds?.details?.media?.pictureMedium
-            ?? embeds?.details?.media?.pictureSmall
-        guard let urlString else { return nil }
-        return URL(string: urlString)
-    }
 
     private static let iso: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -88,15 +61,52 @@ struct Broadcast: Codable {
         return f
     }()
 
-    var startDate: Date? { Self.iso.date(from: startTimestamp) }
-    var endDate: Date? { Self.iso.date(from: endTimestamp) }
+    // Pre-compiled once; avoids NSRegularExpression init cost on every title access
+    private static let ntsRegex = try! NSRegularExpression(pattern: "\\bNts\\b")
 
-    var progress: Double {
-        guard let start = startDate, let end = endDate else { return 0 }
-        let total = end.timeIntervalSince(start)
-        guard total > 0 else { return 0 }
-        let elapsed = Date().timeIntervalSince(start)
-        return max(0, min(1, elapsed / total))
+    private enum CodingKeys: String, CodingKey {
+        case broadcastTitle = "broadcast_title"
+        case startTimestamp = "start_timestamp"
+        case endTimestamp = "end_timestamp"
+        case embeds
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        broadcastTitle = try c.decode(String.self, forKey: .broadcastTitle)
+        let startStr   = try c.decode(String.self, forKey: .startTimestamp)
+        let endStr     = try c.decode(String.self, forKey: .endTimestamp)
+        startDate      = Self.iso.date(from: startStr)
+        endDate        = Self.iso.date(from: endStr)
+        embeds         = try c.decodeIfPresent(BroadcastEmbeds.self, forKey: .embeds)
+        isRepeat       = broadcastTitle.hasSuffix("(R)")
+
+        let decoded = broadcastTitle.htmlEntityDecoded
+        if decoded.contains(where: { $0.isLetter }), !decoded.contains(where: { $0.isLowercase }) {
+            let cap   = decoded.capitalized
+            let range = NSRange(cap.startIndex..., in: cap)
+            title = Self.ntsRegex.stringByReplacingMatches(in: cap, range: range, withTemplate: "NTS")
+        } else {
+            title = decoded
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(broadcastTitle, forKey: .broadcastTitle)
+        try c.encode(Self.iso.string(from: startDate ?? Date()), forKey: .startTimestamp)
+        try c.encode(Self.iso.string(from: endDate ?? Date()), forKey: .endTimestamp)
+        try c.encodeIfPresent(embeds, forKey: .embeds)
+    }
+
+    var location: String? { embeds?.details?.locationLong }
+
+    var artworkURL: URL? {
+        let urlString = embeds?.details?.media?.pictureMediumLarge
+            ?? embeds?.details?.media?.pictureMedium
+            ?? embeds?.details?.media?.pictureSmall
+        guard let urlString else { return nil }
+        return URL(string: urlString)
     }
 
     private static let timeFormatter: DateFormatter = {
@@ -109,6 +119,14 @@ struct Broadcast: Codable {
     func formattedTime(_ date: Date?) -> String {
         guard let date else { return "" }
         return Self.timeFormatter.string(from: date)
+    }
+
+    var progress: Double {
+        guard let start = startDate, let end = endDate else { return 0 }
+        let total = end.timeIntervalSince(start)
+        guard total > 0 else { return 0 }
+        let elapsed = Date().timeIntervalSince(start)
+        return max(0, min(1, elapsed / total))
     }
 }
 

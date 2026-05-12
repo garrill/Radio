@@ -21,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupPanel()
         setupStatusItem()
         observePlayingChannel()
+        ntsService.startMonitor()
         ntsService.startPolling()
         player.setup()
         /// Open the menu automatically on launch so it can be triggered via app launcher shortcut

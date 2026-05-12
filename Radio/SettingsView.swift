@@ -79,8 +79,6 @@ struct AboutSettingsView: View {
                     .foregroundStyle(.tertiary)
             }
             
-            Text("")
-                
         }
         .padding(.vertical, 40)
         .frame(width: 380)

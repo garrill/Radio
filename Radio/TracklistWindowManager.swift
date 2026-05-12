@@ -18,22 +18,29 @@ class TracklistWindowManager {
     private var entries: [RadioChannel: Entry] = [:]
     private static let dataStore = WKWebsiteDataStore.default()
 
-    /// Creates windows for all channels without loading any URLs.
-    /// Call this at launch to spin up the WebContent process before playback starts.
+    /// Creates windows for all channels and begins loading their tracklist URLs.
+    /// Call this at launch to warm the WebContent process and pre-render pages
+    /// before the user starts playback, eliminating the CPU spike on first open.
     func preload() {
         for channel in RadioChannel.allCases where entries[channel] == nil {
-            createEntry(for: channel)
+            let entry = createEntry(for: channel)
+            entry.webView.load(URLRequest(url: tracklistURL(for: channel)))
         }
     }
 
     func open(channel: RadioChannel) {
         NSApp.activate(ignoringOtherApps: true)
-        let entry = entries[channel] ?? createEntry(for: channel)
-        if entry.webView.url == nil {
-            let url = URL(string: "https://www.nts.live/live-tracklist/\(channel.rawValue)")!
-            entry.webView.load(URLRequest(url: url))
+        if let entry = entries[channel] {
+            entry.window.makeKeyAndOrderFront(nil)
+        } else {
+            let entry = createEntry(for: channel)
+            entry.webView.load(URLRequest(url: tracklistURL(for: channel)))
+            entry.window.makeKeyAndOrderFront(nil)
         }
-        entry.window.makeKeyAndOrderFront(nil)
+    }
+
+    private func tracklistURL(for channel: RadioChannel) -> URL {
+        URL(string: "https://www.nts.live/live-tracklist/\(channel.rawValue)")!
     }
 
     @discardableResult

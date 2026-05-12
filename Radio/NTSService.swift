@@ -12,18 +12,12 @@ class NTSService: ObservableObject {
     private var pollingTask: Task<Void, Never>?
     private var fetchTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
+    private var lastFetchDate: Date?
     private let apiURL = URL(string: "https://www.nts.live/api/v2/live")!
 
-    func startPolling() {
-        pollingTask?.cancel() // guard against duplicate calls
-        fetch()
-        pollingTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(30))
-                if !Task.isCancelled { fetch() }
-            }
-        }
-
+    /// Starts the network path monitor. Call once at launch; the monitor runs for the app's lifetime.
+    func startMonitor() {
+        guard pathMonitor == nil else { return }
         let monitor = NWPathMonitor()
         pathMonitor = monitor
         monitor.pathUpdateHandler = { [weak self] path in
@@ -34,14 +28,28 @@ class NTSService: ObservableObject {
                 if wasOffline && !self.isOffline { self.fetch() }
             }
         }
-        monitor.start(queue: DispatchQueue(label: "nts.network.monitor"))
+        monitor.start(queue: DispatchQueue(label: "nts.network.monitor", qos: .utility))
+    }
+
+    func startPolling() {
+        pollingTask?.cancel()
+        // Skip the immediate fetch if data is fresh — avoids redundant requests
+        // when the panel is closed and quickly reopened.
+        if lastFetchDate.map({ Date().timeIntervalSince($0) > 10 }) ?? true {
+            fetch()
+        }
+        pollingTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                if !Task.isCancelled { fetch() }
+            }
+        }
     }
 
     func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
-        pathMonitor?.cancel()
-        pathMonitor = nil
+        // pathMonitor is intentionally kept alive across panel open/close cycles
     }
 
     /// Called by the Refresh button — shows pulsing indicator for at least 1 second.
@@ -72,6 +80,7 @@ class NTSService: ObservableObject {
                 let (data, _) = try await URLSession.shared.data(for: request)
                 let response = try JSONDecoder().decode(NTSLiveResponse.self, from: data)
                 channels = response.results
+                lastFetchDate = Date()
             } catch {
                 // Silently fail — keep showing last known data
             }
