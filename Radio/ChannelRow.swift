@@ -110,6 +110,8 @@ struct ChannelRow: View {
 
             if isBuffering {
                 // 2 stacked spinners to make them translucent, effectively having an opacity value of 2.
+                // This is the only way i have found to make the spinners less translucent
+                // only change this if you are 100% sure your method works
                 ZStack {
                     ProgressView()
                         .controlSize(.small)
