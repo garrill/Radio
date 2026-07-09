@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		FB8AD4DA2FB3DE3100AEA2B9 /* MaterialView in Frameworks */ = {isa = PBXBuildFile; productRef = FB8AD4D92FB3DE3100AEA2B9 /* MaterialView */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		FBAA9CBB2F588BC800963CC0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -69,7 +65,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FB8AD4DA2FB3DE3100AEA2B9 /* MaterialView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,7 +125,6 @@
 			);
 			name = Radio;
 			packageProductDependencies = (
-				FB8AD4D92FB3DE3100AEA2B9 /* MaterialView */,
 			);
 			productName = Radio;
 			productReference = FBAA9CAD2F588BC600963CC0 /* Radio.app */;
@@ -214,9 +208,6 @@
 			);
 			mainGroup = FBAA9CA42F588BC600963CC0;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				FB8AD4D82FB3DE3100AEA2B9 /* XCLocalSwiftPackageReference "../MaterialView" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FBAA9CAE2F588BC600963CC0 /* Products */;
 			projectDirPath = "";
@@ -641,20 +632,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		FB8AD4D82FB3DE3100AEA2B9 /* XCLocalSwiftPackageReference "../MaterialView" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../MaterialView;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		FB8AD4D92FB3DE3100AEA2B9 /* MaterialView */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MaterialView;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FBAA9CA52F588BC600963CC0 /* Project object */;
 }
