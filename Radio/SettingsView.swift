@@ -36,7 +36,7 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
     @AppStorage("showTracklisting") private var showTracklisting = true
-    @AppStorage("artworkSize") private var artworkSize = "medium"
+    @AppStorage("artworkSize") private var artworkSize = ArtworkSize.medium
 
     var body: some View {
         Form {
@@ -47,9 +47,9 @@ struct GeneralSettingsView: View {
                     Text("Hide link").tag("hidden")
                 }
                 Picker("Artwork size", selection: $artworkSize) {
-                    Text("Small").tag("small")
-                    Text("Medium").tag("medium")
-                    Text("Large").tag("large")
+                    ForEach(ArtworkSize.allCases, id: \.self) { size in
+                        Text(size.label).tag(size)
+                    }
                 }
                 Toggle("Show tracklist link", isOn: $showTracklisting)
             }

@@ -9,15 +9,9 @@ struct ChannelRow: View {
 
     @EnvironmentObject var player: RadioPlayer
     @AppStorage("showTracklisting") private var showTracklisting = true
-    @AppStorage("artworkSize") private var artworkSize = "medium"
+    @AppStorage("artworkSize") private var artworkSize = ArtworkSize.medium
 
-    private var artworkDimension: CGFloat {
-        switch artworkSize {
-        case "small": return 66
-        case "large": return 120
-        default: return 80
-        }
-    }
+    private var artworkDimension: CGFloat { artworkSize.dimension }
 
     @State private var isHovered = false
     @State private var isTracklistHovered = false
@@ -37,7 +31,7 @@ struct ChannelRow: View {
                     HStack(spacing: 0) {
                         channelBadge
                         Spacer()
-                        if showTracklisting && artworkSize != "large" { tracklistButton }
+                        if showTracklisting && artworkSize != .large { tracklistButton }
                     }
 
                     if let broadcast = currentBroadcast {
@@ -55,7 +49,7 @@ struct ChannelRow: View {
 
                     Spacer(minLength: 0)
 
-                    if showTracklisting && artworkSize == "large" { tracklistButton }
+                    if showTracklisting && artworkSize == .large { tracklistButton }
                 }
                 .frame(height: artworkDimension)
             }

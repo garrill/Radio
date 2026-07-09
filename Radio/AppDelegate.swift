@@ -79,7 +79,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button,
               let buttonWindow = button.window else { return }
 
-        let size = AppDelegate.panelSize(for: UserDefaults.standard.string(forKey: "artworkSize") ?? "medium")
+        let artworkSize = UserDefaults.standard.string(forKey: "artworkSize").flatMap(ArtworkSize.init) ?? .medium
+        let size = AppDelegate.panelSize(for: artworkSize)
         panel.setContentSize(size)
 
         let buttonFrame = buttonWindow.frame
@@ -107,11 +108,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private static func panelSize(for artworkSetting: String) -> NSSize {
-        let artwork: CGFloat = artworkSetting == "small" ? 66 : artworkSetting == "large" ? 120 : 80
+    private static func panelSize(for artworkSize: ArtworkSize) -> NSSize {
         // Row: top(12) + artwork + bottom(10) + progressBar(27) + nextUp(24) = artwork + 73
         // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(100) + shadow-padding(36)
-        return NSSize(width: 316, height: artwork * 2 + 286)
+        return NSSize(width: 316, height: artworkSize.dimension * 2 + 286)
     }
 
     private func closePanel() {
