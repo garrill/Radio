@@ -48,6 +48,15 @@ struct ContentView: View {
                 MenuRowButton(icon: "arrow.clockwise", label: "Refresh") {
                     ntsService.fetchManual()
                 }
+                MenuRowButton(icon: "macwindow", label: "Website") {
+                    if let url = URL(string: "https://nts.live") {
+                        #if os(macOS)
+                        NSWorkspace.shared.open(url)
+                        #else
+                        UIApplication.shared.open(url)
+                        #endif
+                    }
+                }
                 if chatroomLinkType != "hidden" {
                     MenuRowButton(icon: "bubble.left", label: "Chatroom") {
                         openChatroom()
