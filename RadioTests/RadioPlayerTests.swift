@@ -79,4 +79,26 @@ struct RadioPlayerTests {
 
         try await waitUntil { p.playingChannel == .two }
     }
+
+    @Test func retryLastStreamResumesTheLastChannel() {
+        let p = RadioPlayer()
+        defer { p.stop() }
+
+        p.play(channel: .two)
+        p.stop()
+        #expect(p.playingChannel == nil)
+
+        p.retryLastStream()
+        #expect(p.playingChannel == .two)
+    }
+
+    @Test func startingPlaybackClearsStreamFailed() {
+        let p = RadioPlayer()
+        defer { p.stop() }
+
+        p.streamFailed = true
+        p.play(channel: .one)
+
+        #expect(p.streamFailed == false)
+    }
 }

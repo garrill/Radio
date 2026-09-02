@@ -12,7 +12,7 @@ Radio is a macOS menu-bar app for streaming NTS Radio (channels 1 and 2). It run
 xcodebuild -scheme Radio -destination 'platform=macOS' build
 ```
 
-Open `Radio.xcodeproj` in Xcode for day-to-day development (Cmd+R to run, Cmd+U to test). There is no SPM package and no external dependencies — the project has no `packageReferences` in `project.pbxproj`; keep it that way unless a dependency is genuinely required.
+Open `Radio.xcodeproj` in Xcode for day-to-day development (Cmd+R to run, Cmd+U to test). There is no `Package.swift`; the one SPM dependency is **Sparkle** (auto-update), resolved by Xcode on first build. Don't add further dependencies unless genuinely required.
 
 Unit tests live in `RadioTests/`, UI tests in `RadioUITests/`. Run a single test via `xcodebuild test -scheme Radio -destination 'platform=macOS' -only-testing:RadioTests/RadioTests/<testMethodName>`.
 
