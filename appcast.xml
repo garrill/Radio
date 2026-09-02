@@ -5,5 +5,26 @@
         <link>https://raw.githubusercontent.com/garrill/Radio/main/appcast.xml</link>
         <description>Updates for Radio, the NTS menu-bar app.</description>
         <language>en</language>
+        <item>
+            <title>0.2.0</title>
+            <pubDate>Wed, 02 Sep 2026 21:44:32 +0100</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/garrill/Radio/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>24</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.2</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[### v0.2.0 (September 2 2026)
+
+
+Beta polish
+
+- Option to open at login
+- Show better errors
+- Added messaging and disclaimers
+- Performance optimisations
+- UI tweaks
+]]></description>
+            <enclosure url="https://github.com/garrill/Radio/releases/download/v0.2.0/Radio-0.2.0.dmg" length="2774615" type="application/octet-stream" sparkle:edSignature="3QHe73pFkhfpzeFvGsE/TfpPYK7eHS2n0QjAXpEDyICqktnKITMNr5Efp4f3er8yiOmHluVpSzj0LGHn12A2BQ=="/>
+        </item>
     </channel>
 </rss>
