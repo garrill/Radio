@@ -12,6 +12,11 @@ The app has no Dock icon and no main window (`LSUIElement`). It lives entirely i
 
 > **Unofficial.** Radio is an independent project and is not affiliated with, endorsed by, or associated with NTS Radio. All audio streams, schedule data, and the NTS name and logo belong to NTS. It streams the same public live feeds as [nts.live](https://www.nts.live).
 
+<p align="center">
+  <img src="docs/screenshot-light.png" alt="Leaf screenshot" width="333px">
+  <img src="docs/screenshot-dark.png" alt="Leaf screenshot" width="333px">
+</p>
+
 ## Installation
 
 Download the latest `.dmg` from the [GitHub Releases page](https://github.com/garrill/Radio/releases).
