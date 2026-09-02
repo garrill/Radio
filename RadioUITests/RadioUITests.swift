@@ -2,38 +2,35 @@
 //  RadioUITests.swift
 //  RadioUITests
 //
-//  Created by Jonny Garrill on 04/03/2026.
-//
 
 import XCTest
 
+/// Radio is an `LSUIElement` menu-bar app: no dock icon, no main window, and the
+/// panel is a borderless `NSPanel` at `.popUpMenu` level. That makes deep XCUITest
+/// automation (clicking the status item, asserting on rows) unreliable until the
+/// panel's controls get accessibility identifiers — see the roadmap's accessibility item.
+/// Until then this stays a launch smoke test.
 final class RadioUITests: XCTestCase {
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testAppLaunchesAndKeepsRunning() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        // The app auto-opens its panel ~0.5s after launch; give it a beat, then
+        // confirm the process is still alive (didn't crash on launch).
+        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertNotEqual(app.state, .notRunning)
+
+        app.terminate()
     }
 
     @MainActor
     func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
         }

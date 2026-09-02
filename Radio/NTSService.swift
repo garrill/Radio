@@ -13,7 +13,19 @@ class NTSService: ObservableObject {
     private var fetchTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
     private var lastFetchDate: Date?
-    private let apiURL = URL(string: "https://www.nts.live/api/v2/live")!
+    private let session: URLSession
+    private let apiURL: URL
+
+    init(session: URLSession = .shared,
+         apiURL: URL = URL(string: "https://www.nts.live/api/v2/live")!) {
+        self.session = session
+        self.apiURL = apiURL
+    }
+
+    /// Awaits the in-flight fetch, if any. Test hook — production code never needs to wait on a fetch.
+    func awaitCurrentFetch() async {
+        await fetchTask?.value
+    }
 
     /// Starts the network path monitor. Call once at launch; the monitor runs for the app's lifetime.
     func startMonitor() {
@@ -77,7 +89,7 @@ class NTSService: ObservableObject {
             do {
                 var request = URLRequest(url: apiURL)
                 request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-                let (data, _) = try await URLSession.shared.data(for: request)
+                let (data, _) = try await session.data(for: request)
                 let response = try JSONDecoder().decode(NTSLiveResponse.self, from: data)
                 channels = response.results
                 lastFetchDate = Date()

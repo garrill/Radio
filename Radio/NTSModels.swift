@@ -111,6 +111,9 @@ struct Broadcast: Codable {
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
+        // en_US_POSIX so "HH:mm" stays 24-hour even when the user has 24-Hour Time off,
+        // otherwise the system rewrites it to a localised "4:24 pm".
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "HH:mm"
         f.timeZone = .current
         return f
