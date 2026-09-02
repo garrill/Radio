@@ -7,7 +7,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Jonny Garrill</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>14.0</string>
+	<string>26.2</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
