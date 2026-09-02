@@ -7,6 +7,8 @@ struct ContentView: View {
     @EnvironmentObject var player: RadioPlayer
     @EnvironmentObject var ntsService: NTSService
 
+    @Environment(\.colorScheme) private var colorScheme
+
     @State private var pulseOpacity: Double = 1.0
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
     @AppStorage("didSeeIntro") private var didSeeIntro = false
@@ -65,6 +67,34 @@ struct ContentView: View {
         }
         .frame(width: 280)
         .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        .overlay {
+            // A hairline border sitting just outside the card edge, so it picks up the
+            // wallpaper behind rather than only the window background — reads as a native
+            // window edge. `.inset(by:)` with a negative value expands the shape past the
+            // card boundary, and a centred `.stroke` (not `.strokeBorder`) lets the line
+            // straddle that boundary outward.
+            if colorScheme == .dark {
+                RoundedRectangle(cornerRadius: 18)
+                    .inset(by: -0.25)
+                    .stroke(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .white.opacity(0.5), location: 0),
+                                .init(color: .white.opacity(0.2), location: 0.02),
+                                .init(color: .white.opacity(0.18), location: 1),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 18)
+                    .inset(by: -0.25)
+                    .stroke(.black.opacity(0.2), lineWidth: 0.5)
+            }
+        }
+        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
         .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
         .overlay(alignment: .top) { introHint }
         .padding(24) // Room for shadow to render beyond panel edge
