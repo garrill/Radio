@@ -6,7 +6,7 @@ import OSLog
 /// The status is owned by the system, so treat `isEnabled` as the source of truth
 /// and reconcile any UI toggle against it.
 enum LoginItem {
-    private static let log = Logger(subsystem: "com.garrill.Radio", category: "loginitem")
+    private static let log = Log.loginItem
 
     static var isEnabled: Bool {
         SMAppService.mainApp.status == .enabled

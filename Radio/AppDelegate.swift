@@ -2,6 +2,7 @@
 import AppKit
 import SwiftUI
 import Combine
+import OSLog
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -18,13 +19,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        Log.lifecycle.notice("Launched Radio \(version, privacy: .public) (\(build, privacy: .public)) on \(ProcessInfo.processInfo.operatingSystemVersionString, privacy: .public)")
+
         setupPanel()
         setupStatusItem()
         observePlayingChannel()
+        DiagnosticsMonitor.shared.start()
         ntsService.startMonitor()
         ntsService.startPolling()
         player.setup()
         _ = UpdaterHolder.shared   // start Sparkle's background update checks
+
+        // A refetch when the Mac wakes — the schedule is stale after sleep, and this
+        // also re-warms things if the network changed while asleep.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, self.panel.isVisible else { return }
+            Log.lifecycle.debug("Woke from sleep — refetching")
+            self.ntsService.fetch()
+        }
         /// Open the menu automatically on launch so it can be triggered via app launcher shortcut
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.showPanel()
@@ -101,7 +117,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         player.isPanelVisible = true
         ntsService.startPolling()
         panel.orderFront(nil)
+        Log.lifecycle.debug("Panel shown")
 
+        // Defensive: never leak a monitor if showPanel runs twice without a closePanel.
+        if let monitor = outsideClickMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { [weak self] _ in
@@ -125,6 +146,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         player.isPanelVisible = false
         ntsService.stopPolling()
         panel.orderOut(nil)
+        Log.lifecycle.debug("Panel hidden")
     }
 
     // MARK: - Status Item

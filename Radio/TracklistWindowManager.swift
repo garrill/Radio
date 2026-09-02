@@ -1,6 +1,7 @@
 #if os(macOS)
 import AppKit
 import WebKit
+import OSLog
 
 /// Opens and manages persistent `WKWebView` windows for the NTS live tracklist.
 ///
@@ -54,6 +55,7 @@ class TracklistWindowManager {
         let entry = entries[channel] ?? createEntry(for: channel)
         cancelIdleBlank(for: channel)
         if entry.isBlank || entry.webView.url == nil {
+            Log.tracklist.debug("Reloading \(channel.label, privacy: .public) tracklist")
             entry.webView.load(URLRequest(url: tracklistURL(for: channel)))
             entry.isBlank = false
         }
@@ -77,6 +79,7 @@ class TracklistWindowManager {
                 return
             }
             guard !entry.isBlank else { return }
+            Log.tracklist.debug("Blanking idle \(channel.label, privacy: .public) tracklist window")
             entry.webView.load(URLRequest(url: Self.blankURL))
             entry.isBlank = true
         }

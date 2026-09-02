@@ -21,14 +21,14 @@ struct RadioChannelTests {
     }
 
     @Test func streamURLsPointAtTheNTSRelay() {
-        #expect(RadioChannel.one.streamURL.absoluteString == "http://stream-relay-geo.ntslive.net/stream")
-        #expect(RadioChannel.two.streamURL.absoluteString == "http://stream-relay-geo.ntslive.net/stream2")
+        #expect(RadioChannel.one.streamURL.absoluteString == "https://stream-relay-geo.ntslive.net/stream")
+        #expect(RadioChannel.two.streamURL.absoluteString == "https://stream-relay-geo.ntslive.net/stream2")
     }
 
-    @Test func streamsAreHTTP_matchingTheATSException() {
-        // Info.plist grants NSExceptionAllowsInsecureHTTPLoads for this host; keep them in sync.
+    @Test func streamsAreHTTPS() {
+        // The relay serves HTTPS, so there is no ATS exception in Info.plist any more.
         for channel in RadioChannel.allCases {
-            #expect(channel.streamURL.scheme == "http")
+            #expect(channel.streamURL.scheme == "https")
             #expect(channel.streamURL.host == "stream-relay-geo.ntslive.net")
         }
     }

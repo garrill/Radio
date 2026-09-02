@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import Network
+import OSLog
 
 @MainActor
 class NTSService: ObservableObject {
@@ -37,6 +38,9 @@ class NTSService: ObservableObject {
                 guard let self else { return }
                 let wasOffline = self.isOffline
                 self.isOffline = path.status != .satisfied
+                if wasOffline != self.isOffline {
+                    Log.service.notice("Network \(self.isOffline ? "offline" : "online", privacy: .public)")
+                }
                 if wasOffline && !self.isOffline { self.fetch() }
             }
         }
@@ -62,6 +66,7 @@ class NTSService: ObservableObject {
         pollingTask?.cancel()
         pollingTask = nil
         // pathMonitor is intentionally kept alive across panel open/close cycles
+        Log.service.debug("Polling stopped")
     }
 
     /// Called by the Refresh button — shows pulsing indicator for at least 1 second.
@@ -86,15 +91,24 @@ class NTSService: ObservableObject {
                 fetchTask = nil
                 isLoading = false
             }
+            var request = URLRequest(url: apiURL)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
             do {
-                var request = URLRequest(url: apiURL)
-                request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-                let (data, _) = try await session.data(for: request)
-                let response = try JSONDecoder().decode(NTSLiveResponse.self, from: data)
-                channels = response.results
-                lastFetchDate = Date()
+                let (data, response) = try await session.data(for: request)
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                do {
+                    let decoded = try JSONDecoder().decode(NTSLiveResponse.self, from: data)
+                    channels = decoded.results
+                    lastFetchDate = Date()
+                    Log.service.debug("Fetched \(decoded.results.count) channels (HTTP \(status))")
+                } catch {
+                    // Decoded shape changed. Keep last known data; log a short payload
+                    // prefix (NTS schedule data carries no PII) so it's diagnosable.
+                    let prefix = String(decoding: data.prefix(400), as: UTF8.self)
+                    Log.service.error("Decode failed (HTTP \(status)): \(error.localizedDescription, privacy: .public) — body starts: \(prefix, privacy: .public)")
+                }
             } catch {
-                // Silently fail — keep showing last known data
+                Log.service.error("Request failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

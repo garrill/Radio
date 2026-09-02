@@ -214,10 +214,10 @@
 			);
 			mainGroup = FBAA9CA42F588BC600963CC0;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			packageReferences = (
 				5AA5AA5AA5AA5AA5AA5A0003 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
+			preferredProjectObjectVersion = 77;
 			productRefGroup = FBAA9CAE2F588BC600963CC0 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";

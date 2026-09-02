@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AVFoundation
+import OSLog
 #if os(macOS)
 import MediaPlayer
 import AppKit
@@ -19,8 +20,8 @@ enum RadioChannel: Int, CaseIterable, Identifiable {
         }
     }
 
-    private static let streamOneURL = URL(string: "http://stream-relay-geo.ntslive.net/stream")!
-    private static let streamTwoURL = URL(string: "http://stream-relay-geo.ntslive.net/stream2")!
+    private static let streamOneURL = URL(string: "https://stream-relay-geo.ntslive.net/stream")!
+    private static let streamTwoURL = URL(string: "https://stream-relay-geo.ntslive.net/stream2")!
 
     var label: String {
         switch self {
@@ -57,7 +58,14 @@ class RadioPlayer: ObservableObject {
     // Keeps the last broadcast so media key play can restore context
     private var lastBroadcast: Broadcast?
     private var lastChannel: RadioChannel?
+
+    // Stream watchdog: exponential-backoff reconnects, plus a stall timer for the case
+    // where the stream never errors but just sits in "buffering" forever.
     private var reconnectAttempts = 0
+    private let maxReconnectAttempts = 3
+    private let stallTimeout: Duration = .seconds(15)
+    private var reconnectTask: Task<Void, Never>?
+    private var stallTask: Task<Void, Never>?
 
     func setup() {
         #if os(macOS)
@@ -67,8 +75,10 @@ class RadioPlayer: ObservableObject {
 
     func toggle(channel: RadioChannel, broadcast: Broadcast? = nil) {
         if playingChannel == channel {
+            Log.player.log("toggle: stopping \(channel.label, privacy: .public)")
             fadeOutAndStop()
         } else {
+            Log.player.log("toggle: switching to \(channel.label, privacy: .public)")
             fadeOutAndStop { [weak self] in
                 self?.play(channel: channel, broadcast: broadcast)
             }
@@ -95,6 +105,10 @@ class RadioPlayer: ObservableObject {
     func stop() {
         fadeTask?.cancel()
         fadeTask = nil
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        stallTask?.cancel()
+        stallTask = nil
         player?.pause()
         timeControlObserver?.invalidate()
         timeControlObserver = nil
@@ -114,12 +128,20 @@ class RadioPlayer: ObservableObject {
     /// Re-attempts the last stream the user asked for. Used by the panel's "playback stopped" retry.
     func retryLastStream() {
         guard let channel = lastChannel ?? playingChannel else { return }
+        Log.player.notice("Manual retry of \(channel.label, privacy: .public)")
         play(channel: channel, broadcast: lastBroadcast)
     }
 
-    func play(channel: RadioChannel, broadcast: Broadcast? = nil) {
+    /// `isReconnect` keeps the watchdog's attempt counter across an automatic retry;
+    /// a user-initiated play resets it.
+    func play(channel: RadioChannel, broadcast: Broadcast? = nil, isReconnect: Bool = false) {
         stop()
         streamFailed = false
+        if !isReconnect {
+            reconnectAttempts = 0
+            Log.player.notice("Play \(channel.label, privacy: .public)")
+        }
+
         let item = AVPlayerItem(url: channel.streamURL)
         let newPlayer = AVPlayer(playerItem: item)
         player = newPlayer
@@ -127,31 +149,33 @@ class RadioPlayer: ObservableObject {
         isBuffering = true
         lastChannel = channel
         lastBroadcast = broadcast
-        reconnectAttempts = 0
 
         timeControlObserver = newPlayer.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isBuffering = p.timeControlStatus == .waitingToPlayAtSpecifiedRate
-                if p.timeControlStatus == .playing { self.streamFailed = false }
+                switch p.timeControlStatus {
+                case .playing:
+                    if self.reconnectAttempts > 0 {
+                        Log.player.notice("Stream recovered after \(self.reconnectAttempts) attempt(s)")
+                    }
+                    self.reconnectAttempts = 0
+                    self.streamFailed = false
+                    self.stallTask?.cancel()
+                    self.stallTask = nil
+                case .waitingToPlayAtSpecifiedRate:
+                    self.startStallWatchdog()
+                default:
+                    break
+                }
             }
         }
 
-        // Stop cleanly if the stream item fails; retry once after 3 s before giving up.
         itemStatusObserver = item.observe(\.status, options: [.new]) { [weak self] playerItem, _ in
-            if playerItem.status == .failed {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    if self.reconnectAttempts < 1 {
-                        self.reconnectAttempts += 1
-                        try? await Task.sleep(for: .seconds(3))
-                        guard self.playingChannel != nil else { return } // user stopped manually
-                        self.play(channel: self.lastChannel!, broadcast: self.lastBroadcast)
-                    } else {
-                        self.stop()
-                        self.streamFailed = true
-                    }
-                }
+            guard playerItem.status == .failed else { return }
+            let message = playerItem.error?.localizedDescription ?? "unknown error"
+            Task { @MainActor [weak self] in
+                self?.handleStreamProblem("item failed: \(message)")
             }
         }
 
@@ -160,6 +184,43 @@ class RadioPlayer: ObservableObject {
         #if os(macOS)
         updateNowPlaying(channel: channel, broadcast: broadcast)
         #endif
+    }
+
+    /// Fires if the stream sits in "buffering" for `stallTimeout` without ever erroring —
+    /// otherwise it would show "buffering" forever.
+    private func startStallWatchdog() {
+        stallTask?.cancel()
+        stallTask = Task { [weak self] in
+            try? await Task.sleep(for: self?.stallTimeout ?? .seconds(15))
+            guard let self, !Task.isCancelled, self.isBuffering, self.playingChannel != nil else { return }
+            self.handleStreamProblem("stalled while buffering")
+        }
+    }
+
+    /// Reconnect with exponential backoff (2 s, 4 s, 8 s); give up into `streamFailed`
+    /// after `maxReconnectAttempts`.
+    private func handleStreamProblem(_ reason: String) {
+        guard playingChannel != nil, let channel = lastChannel else { return }
+        reconnectTask?.cancel()
+        stallTask?.cancel()
+        stallTask = nil
+        reconnectAttempts += 1
+
+        guard reconnectAttempts <= maxReconnectAttempts else {
+            Log.player.error("Stream gave up after \(self.maxReconnectAttempts) attempts — \(reason, privacy: .public)")
+            stop()
+            streamFailed = true
+            return
+        }
+
+        let delay = min(20.0, pow(2.0, Double(reconnectAttempts - 1)) * 2)
+        Log.player.notice("Stream problem (\(reason, privacy: .public)) — reconnect \(self.reconnectAttempts)/\(self.maxReconnectAttempts) in \(Int(delay)) s")
+        let broadcast = lastBroadcast
+        reconnectTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self, !Task.isCancelled, self.playingChannel != nil else { return }
+            self.play(channel: channel, broadcast: broadcast, isReconnect: true)
+        }
     }
 
     #if os(macOS)

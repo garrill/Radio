@@ -32,16 +32,5 @@
 	<string>+5UeuQ0o1MsPwzYZXijlrKWgu+G/+N76/qAP7Yp26uw=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>stream-relay-geo.ntslive.net</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
 </dict>
 </plist>
