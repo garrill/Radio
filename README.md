@@ -10,6 +10,8 @@ Radio puts [NTS Radio](https://www.nts.live) channels 1 and 2 in your menu bar, 
 
 The app has no Dock icon and no main window (`LSUIElement`). It lives entirely in the menu bar: click the status icon to drop down a floating panel showing both channels.
 
+> **Unofficial.** Radio is an independent project and is not affiliated with, endorsed by, or associated with NTS Radio. All audio streams, schedule data, and the NTS name and logo belong to NTS. It streams the same public live feeds as [nts.live](https://www.nts.live).
+
 ## Installation
 
 Download the latest `.dmg` from the [GitHub Releases page](https://github.com/garrill/Radio/releases).
@@ -49,3 +51,7 @@ Row/panel sizing comes from `ArtworkSize.swift`. Data shown in each row comes fr
 - **`RadioPlayer`** wraps a single `AVPlayer` for whichever of the two live streams is active, and integrates with `MPRemoteCommandCenter`/`MPNowPlayingInfoCenter` for media-key and Control Center support.
 - **`NTSService`** polls `https://www.nts.live/api/v2/live` every 30s while the panel is open, decoding into the models in `NTSModels.swift`. A persistent `NWPathMonitor` tracks connectivity and triggers a re-fetch on reconnect.
 - **View layer** is split by concern rather than kept in one file: `ContentView` (panel root) → `ChannelRow` (per-channel row) → `MarqueeComponents`/`AnimationComponents` (scrolling text, waveform, live-dot) and `MenuComponents` (bottom action rows). Follow this split when adding UI rather than growing a single file.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Note the disclaimer above: the MIT license covers Radio's own source, not NTS's streams, branding, or content.

@@ -110,9 +110,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static func panelSize(for artworkSize: ArtworkSize) -> NSSize {
         // Row: top(12) + artwork + bottom(10) + progressBar(27) + nextUp(24) = artwork + 73
-        // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(100) + shadow-padding(36)
+        // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(124) + shadow-padding(36)
+        // buttons(): Refresh/Website/Chatroom/Report a Problem/Settings/Quit — ~24pt each.
         // Width: card(280) + shadow-padding(24*2) — must match ContentView's outer .frame(width:)/.padding(24)
-        return NSSize(width: 328, height: artworkSize.dimension * 2 + 286)
+        return NSSize(width: 328, height: artworkSize.dimension * 2 + 310)
     }
 
     private func closePanel() {

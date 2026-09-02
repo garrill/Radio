@@ -45,6 +45,9 @@ class RadioPlayer: ObservableObject {
     @Published var playingChannel: RadioChannel?
     @Published var isBuffering = false
     @Published var isPanelVisible = false
+    /// Set when a stream fails and the one automatic retry is also exhausted. Survives `stop()`
+    /// so the panel can show a "playback stopped" state; cleared when playback next starts.
+    @Published var streamFailed = false
 
     private var player: AVPlayer?
     private var timeControlObserver: NSKeyValueObservation?
@@ -108,8 +111,15 @@ class RadioPlayer: ObservableObject {
         #endif
     }
 
+    /// Re-attempts the last stream the user asked for. Used by the panel's "playback stopped" retry.
+    func retryLastStream() {
+        guard let channel = lastChannel ?? playingChannel else { return }
+        play(channel: channel, broadcast: lastBroadcast)
+    }
+
     func play(channel: RadioChannel, broadcast: Broadcast? = nil) {
         stop()
+        streamFailed = false
         let item = AVPlayerItem(url: channel.streamURL)
         let newPlayer = AVPlayer(playerItem: item)
         player = newPlayer
@@ -121,7 +131,9 @@ class RadioPlayer: ObservableObject {
 
         timeControlObserver = newPlayer.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
             Task { @MainActor [weak self] in
-                self?.isBuffering = p.timeControlStatus == .waitingToPlayAtSpecifiedRate
+                guard let self else { return }
+                self.isBuffering = p.timeControlStatus == .waitingToPlayAtSpecifiedRate
+                if p.timeControlStatus == .playing { self.streamFailed = false }
             }
         }
 
@@ -137,6 +149,7 @@ class RadioPlayer: ObservableObject {
                         self.play(channel: self.lastChannel!, broadcast: self.lastBroadcast)
                     } else {
                         self.stop()
+                        self.streamFailed = true
                     }
                 }
             }

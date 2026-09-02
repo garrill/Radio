@@ -38,8 +38,20 @@ struct GeneralSettingsView: View {
     @AppStorage("showTracklisting") private var showTracklisting = true
     @AppStorage("artworkSize") private var artworkSize = ArtworkSize.medium
 
+    // System owns login-item state — mirror it, don't persist our own copy.
+    @State private var openAtLogin = LoginItem.isEnabled
+
     var body: some View {
         Form {
+            Section("General") {
+                Toggle("Open Radio at login", isOn: $openAtLogin)
+                    .onChange(of: openAtLogin) { _, want in
+                        if !LoginItem.setEnabled(want) {
+                            openAtLogin = LoginItem.isEnabled // registration failed — snap back
+                        }
+                    }
+            }
+
             Section("User interface") {
                 Picker("Chatroom link", selection: $chatroomLinkType) {
                     Text("Open in browser").tag("web")
@@ -57,6 +69,7 @@ struct GeneralSettingsView: View {
         .formStyle(.grouped)
         .frame(width: 380)
         .padding(.bottom, 8)
+        .onAppear { openAtLogin = LoginItem.isEnabled }
     }
 }
 
@@ -64,7 +77,7 @@ struct GeneralSettingsView: View {
 
 struct AboutSettingsView: View {
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 80, height: 80)
@@ -78,9 +91,20 @@ struct AboutSettingsView: View {
                 Text("(\(buildNumber))")
                     .foregroundStyle(.tertiary)
             }
-            
+
+            Divider().frame(width: 160)
+
+            Text("Not affiliated with NTS Radio. Audio streams, schedule data, and the NTS name and logo belong to NTS.")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 36)
+
+            Button("Report a Problem…") { Feedback.report() }
+                .controlSize(.small)
         }
-        .padding(.vertical, 40)
+        .padding(.vertical, 32)
         .frame(width: 380)
     }
 
