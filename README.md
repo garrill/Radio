@@ -22,7 +22,7 @@ Download the latest `.dmg` from the [GitHub Releases page](https://github.com/ga
 xcodebuild -scheme Radio -destination 'platform=macOS' build
 ```
 
-Or just open `Radio.xcodeproj` in Xcode (Cmd+R to run, Cmd+U to test). There are no external dependencies.
+Or just open `Radio.xcodeproj` in Xcode (Cmd+R to run, Cmd+U to test). The one dependency, [Sparkle](https://sparkle-project.org) for auto-updates, is resolved by Xcode's package manager on first build.
 
 ## Anatomy of the panel
 

@@ -24,6 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ntsService.startMonitor()
         ntsService.startPolling()
         player.setup()
+        _ = UpdaterHolder.shared   // start Sparkle's background update checks
         /// Open the menu automatically on launch so it can be triggered via app launcher shortcut
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.showPanel()
@@ -110,10 +111,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static func panelSize(for artworkSize: ArtworkSize) -> NSSize {
         // Row: top(12) + artwork + bottom(10) + progressBar(27) + nextUp(24) = artwork + 73
-        // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(124) + shadow-padding(36)
-        // buttons(): Refresh/Website/Chatroom/Report a Problem/Settings/Quit — ~24pt each.
+        // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(148) + shadow-padding(36)
+        // buttons(): Refresh/Website/Chatroom/Report a Problem/Check for Updates/Settings/Quit — ~24pt each.
         // Width: card(280) + shadow-padding(24*2) — must match ContentView's outer .frame(width:)/.padding(24)
-        return NSSize(width: 328, height: artworkSize.dimension * 2 + 310)
+        return NSSize(width: 328, height: artworkSize.dimension * 2 + 334)
     }
 
     private func closePanel() {

@@ -101,8 +101,11 @@ struct AboutSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 36)
 
-            Button("Report a Problem…") { Feedback.report() }
-                .controlSize(.small)
+            HStack(spacing: 10) {
+                Button("Check for Updates…") { UpdaterHolder.checkForUpdates() }
+                Button("Report a Problem…") { Feedback.report() }
+            }
+            .controlSize(.small)
         }
         .padding(.vertical, 32)
         .frame(width: 380)

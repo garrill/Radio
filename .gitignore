@@ -24,7 +24,7 @@ xcuserdata/
 
 # Swift Package Manager
 .build/
-*.resolved
+# Package.resolved IS tracked — it pins the exact Sparkle version.
 
 # Crashlytics
 crashlytics-build.properties

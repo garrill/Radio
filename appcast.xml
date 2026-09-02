@@ -1,0 +1,9 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Radio</title>
+        <link>https://raw.githubusercontent.com/garrill/Radio/main/appcast.xml</link>
+        <description>Updates for Radio, the NTS menu-bar app.</description>
+        <language>en</language>
+    </channel>
+</rss>

@@ -10,6 +10,9 @@ struct ContentView: View {
     @State private var pulseOpacity: Double = 1.0
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
     @AppStorage("didSeeIntro") private var didSeeIntro = false
+    #if os(macOS)
+    @StateObject private var updaterVM = CheckForUpdatesViewModel()
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,6 +61,10 @@ struct ContentView: View {
                 MenuRowButton(icon: "exclamationmark.bubble", label: "Report a Problem") {
                     Feedback.report()
                 }
+                MenuRowButton(icon: "arrow.down.circle", label: "Check for Updates") {
+                    updaterVM.checkForUpdates()
+                }
+                .disabled(!updaterVM.canCheckForUpdates)
                 SettingsMenuButton()
                 #endif
                 MenuRowButton(icon: "xmark.rectangle", label: "Quit Radio", isLast: true) {
