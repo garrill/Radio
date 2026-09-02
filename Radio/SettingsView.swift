@@ -106,8 +106,21 @@ struct AboutSettingsView: View {
                 Button("Report a Problem…") { Feedback.report() }
             }
             .controlSize(.small)
+
+            HStack(spacing: 8) {
+                Link("NTS", destination: URL(string: "https://www.nts.live")!)
+                Text("·").foregroundStyle(.tertiary)
+                Link("Source", destination: URL(string: "https://github.com/garrill/Radio")!)
+                Text("·").foregroundStyle(.tertiary)
+                Link("Built with Sparkle", destination: URL(string: "https://sparkle-project.org")!)
+            }
+            .font(.system(size: 10))
+
+            Text("© 2026 Jonny Garrill · MIT-licensed · collects nothing")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 32)
+        .padding(.vertical, 28)
         .frame(width: 380)
     }
 
