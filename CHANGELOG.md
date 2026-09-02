@@ -6,6 +6,16 @@ release notes, so keep entries user-facing.
 
 ## [Unreleased]
 
+## [0.2.0]
+
+Beta polish
+
+- Option to open at login
+- Show better errors
+- Added messaging and disclaimers
+- Performance optimisations
+- UI tweaks
+
 ## [0.1.0]
 
 First beta.
