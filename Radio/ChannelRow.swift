@@ -16,6 +16,9 @@ struct ChannelRow: View {
     @State private var isHovered = false
     @State private var isTracklistHovered = false
     @State private var isBottomHovered = false
+    // Stable anchor for the progress TimelineView. `from: .now` re-evaluated every
+    // render churns SwiftUI's UpdateFilter (~25% idle CPU with the panel open).
+    @State private var timelineAnchor = Date()
 
     private var isPlaying: Bool { player.playingChannel == channel }
     private var isBuffering: Bool { player.isBuffering && isPlaying }
@@ -118,7 +121,7 @@ struct ChannelRow: View {
                 Image(systemName: "stop.fill")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white)
-            } else if isPlaying {
+            } else if isPlaying && player.isPanelVisible {
                 WaveformView()
                     .frame(width: 22, height: 18)
                     .foregroundStyle(.white)
@@ -154,7 +157,7 @@ struct ChannelRow: View {
                 .padding(.leading, 2)
 
             if let location = currentBroadcast?.location {
-                MarqueeText(text: location, maxWidth: 60)
+                MarqueeText(text: location, maxWidth: 60, isActive: player.isPanelVisible)
                     .fontWidth(.condensed)
             }
         }
@@ -194,7 +197,7 @@ struct ChannelRow: View {
         // waking the SwiftUI render tree every 20 s in the background.
         Group {
             if player.isPanelVisible {
-                TimelineView(.periodic(from: .now, by: 20)) { _ in
+                TimelineView(.periodic(from: timelineAnchor, by: 20)) { _ in
                     progressBarContent(for: broadcast)
                 }
             } else {
@@ -244,7 +247,7 @@ struct ChannelRow: View {
                 Text("Up next")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.tertiary)
-                NextBroadcastMarquee(broadcast: next, isHovered: isBottomHovered, maxWidth: 185)
+                NextBroadcastMarquee(broadcast: next, isHovered: isBottomHovered, maxWidth: 185, isActive: player.isPanelVisible)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

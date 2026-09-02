@@ -155,6 +155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] channel in
                 guard let self, let button = self.statusItem.button else { return }
+                TracklistWindowManager.shared.isPlaybackActive = channel != nil
                 if let channel {
                     let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .medium)
                     let img = NSImage(

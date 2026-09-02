@@ -5,6 +5,8 @@ import SwiftUI
 struct MarqueeText: View {
     let text: String
     let maxWidth: CGFloat
+    /// When false (e.g. the panel is closed) the scroll loop doesn't run.
+    var isActive: Bool = true
 
     @State private var animate = false
     @State private var naturalWidth: CGFloat = 0
@@ -32,9 +34,10 @@ struct MarqueeText: View {
                 alignment: .leading
             )
             .clipped()
-            .task(id: text) {
+            .task(id: "\(text)-\(isActive)") {
                 // Reset and wait one tick for the onChange measurement to settle
                 animate = false
+                guard isActive else { return }
                 try? await Task.sleep(for: .milliseconds(50))
                 guard overflow > 1, !Task.isCancelled else { return }
                 let duration = max(2.0, Double(overflow) / 20)
@@ -55,6 +58,8 @@ struct NextBroadcastMarquee: View {
     let broadcast: Broadcast
     let isHovered: Bool
     let maxWidth: CGFloat
+    /// When false (e.g. the panel is closed) the scroll loop doesn't run.
+    var isActive: Bool = true
 
     @State private var animate = false
     @State private var naturalWidth: CGFloat = 0
@@ -88,8 +93,8 @@ struct NextBroadcastMarquee: View {
                 alignment: .leading
             )
             .clipped()
-            .task(id: "\(isHovered)-\(displayText)") {
-                if !isHovered {
+            .task(id: "\(isHovered)-\(displayText)-\(isActive)") {
+                if !isHovered || !isActive {
                     withAnimation(.easeOut(duration: 0.3)) { animate = false }
                     return
                 }

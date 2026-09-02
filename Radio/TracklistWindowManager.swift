@@ -2,42 +2,94 @@
 import AppKit
 import WebKit
 
-/// Opens and manages persistent WKWebView windows for the NTS live tracklist.
-/// Windows are kept alive after the user closes them so the WebContent process
-/// stays warm — preventing audio stutter on subsequent opens during playback.
+/// Opens and manages persistent `WKWebView` windows for the NTS live tracklist.
+///
+/// Windows (and their WebContent processes) are kept alive after the user closes them
+/// so reopening during playback doesn't stutter. But NTS's tracklist page runs a live
+/// ticker, so a *hidden* page still pegs a WebCore thread and holds ~120 MB. To avoid
+/// paying that while nothing is on screen, an idle window is reloaded to `about:blank`
+/// after `idleGrace` seconds — the window and its warm process stay, the live page
+/// doesn't. `open(channel:)` reloads the real URL. While playback is active we skip the
+/// blanking (a reload stutter mid-playback is the thing this class exists to prevent).
 @MainActor
 class TracklistWindowManager {
     static let shared = TracklistWindowManager()
 
-    private struct Entry {
+    private final class Entry {
         let window: NSWindow
         let webView: WKWebView
         let delegate: WindowDelegate
+        var idleBlank: DispatchWorkItem?
+        var isBlank = false
+
+        init(window: NSWindow, webView: WKWebView, delegate: WindowDelegate) {
+            self.window = window
+            self.webView = webView
+            self.delegate = delegate
+        }
     }
 
     private var entries: [RadioChannel: Entry] = [:]
     private static let dataStore = WKWebsiteDataStore.default()
+    private static let blankURL = URL(string: "about:blank")!
+    private let idleGrace: TimeInterval = 60
 
-    /// Creates windows for all channels and begins loading their tracklist URLs.
-    /// Call this at launch to warm the WebContent process and pre-render pages
-    /// before the user starts playback, eliminating the CPU spike on first open.
+    /// Set by `AppDelegate` from `player.$playingChannel`. Pages are kept warm while true.
+    var isPlaybackActive = false {
+        didSet { if isPlaybackActive { entries.keys.forEach { cancelIdleBlank(for: $0) } } }
+    }
+
+    /// Creates windows for all channels and loads their tracklist URLs, so an early
+    /// first open is instant. Pages that are never opened get blanked after `idleGrace`.
     func preload() {
         for channel in RadioChannel.allCases where entries[channel] == nil {
             let entry = createEntry(for: channel)
             entry.webView.load(URLRequest(url: tracklistURL(for: channel)))
+            scheduleIdleBlank(for: channel)
         }
     }
 
     func open(channel: RadioChannel) {
         NSApp.activate(ignoringOtherApps: true)
-        if let entry = entries[channel] {
-            entry.window.makeKeyAndOrderFront(nil)
-        } else {
-            let entry = createEntry(for: channel)
+        let entry = entries[channel] ?? createEntry(for: channel)
+        cancelIdleBlank(for: channel)
+        if entry.isBlank || entry.webView.url == nil {
             entry.webView.load(URLRequest(url: tracklistURL(for: channel)))
-            entry.window.makeKeyAndOrderFront(nil)
+            entry.isBlank = false
         }
+        entry.window.makeKeyAndOrderFront(nil)
     }
+
+    fileprivate func windowClosed(_ channel: RadioChannel) {
+        scheduleIdleBlank(for: channel)
+    }
+
+    // MARK: - Idle blanking
+
+    private func scheduleIdleBlank(for channel: RadioChannel) {
+        guard let entry = entries[channel] else { return }
+        entry.idleBlank?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let entry = self.entries[channel] else { return }
+            entry.idleBlank = nil
+            guard !entry.window.isVisible, !self.isPlaybackActive else {
+                self.scheduleIdleBlank(for: channel) // still in use — try again later
+                return
+            }
+            guard !entry.isBlank else { return }
+            entry.webView.load(URLRequest(url: Self.blankURL))
+            entry.isBlank = true
+        }
+        entry.idleBlank = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + idleGrace, execute: work)
+    }
+
+    private func cancelIdleBlank(for channel: RadioChannel) {
+        entries[channel]?.idleBlank?.cancel()
+        entries[channel]?.idleBlank = nil
+    }
+
+    // MARK: - Construction
 
     private func tracklistURL(for channel: RadioChannel) -> URL {
         URL(string: "https://www.nts.live/live-tracklist/\(channel.rawValue)")!
@@ -80,8 +132,11 @@ private class WindowDelegate: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        // Window is intentionally kept alive (isReleasedWhenClosed = false)
-        // so the WebContent process stays warm for the next open.
+        // Window is kept alive (isReleasedWhenClosed = false); after a grace period
+        // the manager reloads it to about:blank so the hidden page stops burning CPU.
+        MainActor.assumeIsolated {
+            manager?.windowClosed(channel)
+        }
     }
 }
 #endif
