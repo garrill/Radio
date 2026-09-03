@@ -88,14 +88,8 @@ struct ChannelRow: View {
                 .frame(width: artworkDimension, height: artworkDimension)
 
             if let url = currentBroadcast?.artworkURL {
-                AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase {
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    }
-                }
-                .frame(width: artworkDimension, height: artworkDimension)
+                ArtworkImage(url: url, dimension: artworkDimension)
+                    .frame(width: artworkDimension, height: artworkDimension)
             }
 
             // Dark scrim whenever there's an overlay to show

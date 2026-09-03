@@ -137,10 +137,16 @@ struct BroadcastTests {
         let b = try Fixture.decodeBroadcast(Fixture.broadcastDict())
         #expect(b.formattedTime(nil) == "")
 
+        // Honours the system clock setting: "16:24" (24-hour) or "4:24 PM" (12-hour).
         let formatted = b.formattedTime(Date())
-        #expect(formatted.count == 5)
-        #expect(formatted.dropFirst(2).first == ":")
-        #expect(formatted.filter(\.isNumber).count == 4)
+        #expect(formatted.contains(":"))
+        #expect(formatted.filter(\.isNumber).count >= 3)
+
+        let is24Hour = !DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)!
+            .contains("a")
+        let hasMeridiem = formatted.localizedCaseInsensitiveContains("AM")
+            || formatted.localizedCaseInsensitiveContains("PM")
+        #expect(hasMeridiem == !is24Hour)
     }
 
     // MARK: Round-trip

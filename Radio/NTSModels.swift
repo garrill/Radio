@@ -63,6 +63,10 @@ struct Broadcast: Codable {
 
     // Pre-compiled once; avoids NSRegularExpression init cost on every title access
     private static let ntsRegex = try! NSRegularExpression(pattern: "\\bNts\\b")
+    // `.capitalized` lowercases "DJ" to "Dj" — this restores it.
+    private static let djRegex = try! NSRegularExpression(pattern: "\\bDj\\b")
+    // `.capitalized` turns the "w/" shorthand into "W/" — this puts it back.
+    private static let wSlashRegex = try! NSRegularExpression(pattern: "\\bW/")
 
     private enum CodingKeys: String, CodingKey {
         case broadcastTitle = "broadcast_title"
@@ -82,10 +86,17 @@ struct Broadcast: Codable {
         isRepeat       = broadcastTitle.hasSuffix("(R)")
 
         let decoded = broadcastTitle.htmlEntityDecoded
-        if decoded.contains(where: { $0.isLetter }), !decoded.contains(where: { $0.isLowercase }) {
+        // Treat the title as all-uppercase if the only lowercase in it is the "w/"
+        // shorthand NTS uses for "with" inside otherwise all-caps titles.
+        let withoutWSlash = decoded.replacingOccurrences(of: "w/", with: "")
+        if decoded.contains(where: { $0.isLetter }), !withoutWSlash.contains(where: { $0.isLowercase }) {
             let cap   = decoded.capitalized
-            let range = NSRange(cap.startIndex..., in: cap)
-            title = Self.ntsRegex.stringByReplacingMatches(in: cap, range: range, withTemplate: "NTS")
+            var range = NSRange(cap.startIndex..., in: cap)
+            let nts   = Self.ntsRegex.stringByReplacingMatches(in: cap, range: range, withTemplate: "NTS")
+            range     = NSRange(nts.startIndex..., in: nts)
+            let dj    = Self.djRegex.stringByReplacingMatches(in: nts, range: range, withTemplate: "DJ")
+            range     = NSRange(dj.startIndex..., in: dj)
+            title     = Self.wSlashRegex.stringByReplacingMatches(in: dj, range: range, withTemplate: "w/")
         } else {
             title = decoded
         }
@@ -109,19 +120,29 @@ struct Broadcast: Codable {
         return URL(string: urlString)
     }
 
-    private static let timeFormatter: DateFormatter = {
+    // Rebuilt whenever the effective locale changes so the "24-Hour Time" system
+    // setting is honoured: the "j" skeleton resolves to 24-hour ("16:24") or
+    // 12-hour ("4:24 PM") according to the user's preference.
+    private static var cachedTimeFormatter: (locale: Locale, formatter: DateFormatter)?
+
+    private static func timeFormatter() -> DateFormatter {
+        // Locale.current is a fresh snapshot that reflects the live "24-Hour Time"
+        // setting, so a change invalidates the cache and the format is recomputed.
+        let locale = Locale.current
+        if let cached = cachedTimeFormatter, cached.locale == locale {
+            return cached.formatter
+        }
         let f = DateFormatter()
-        // en_US_POSIX so "HH:mm" stays 24-hour even when the user has 24-Hour Time off,
-        // otherwise the system rewrites it to a localised "4:24 pm".
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "HH:mm"
+        f.locale = locale
         f.timeZone = .current
+        f.setLocalizedDateFormatFromTemplate("jmm")
+        cachedTimeFormatter = (locale, f)
         return f
-    }()
+    }
 
     func formattedTime(_ date: Date?) -> String {
         guard let date else { return "" }
-        return Self.timeFormatter.string(from: date)
+        return Self.timeFormatter().string(from: date)
     }
 
     var progress: Double {
