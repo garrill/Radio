@@ -6,6 +6,16 @@ release notes, so keep entries user-facing.
 
 ## [Unreleased]
 
+## [0.3.0]
+
+Optimisations
+
+- Opens in background at login
+- Resized images better so they aren't crispy on 1× screens
+- Respect system time format (12/24hr)
+- Changed now playing animation to use less CPU
+- Fixed Settings tab bar being squashed
+
 ## [0.2.0]
 
 Beta polish

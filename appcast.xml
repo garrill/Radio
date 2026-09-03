@@ -6,6 +6,27 @@
         <description>Updates for Radio, the NTS menu-bar app.</description>
         <language>en</language>
         <item>
+            <title>0.3.0</title>
+            <pubDate>Thu, 03 Sep 2026 22:42:16 +0100</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/garrill/Radio/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>31</sparkle:version>
+            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.2</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[### v0.3.0 (September 3 2026)
+
+
+Optimisations
+
+- Opens in background at login
+- Resized images better so they aren't crispy on 1× screens
+- Respect system time format (12/24hr)
+- Changed now playing animation to use less CPU
+- Fixed Settings tab bar being squashed
+]]></description>
+            <enclosure url="https://github.com/garrill/Radio/releases/download/v0.3.0/Radio-0.3.0.dmg" length="2783594" type="application/octet-stream" sparkle:edSignature="P/s1auvWCx2zWPhLUudWdTrRfiN7vqglULKz/itVgy/U+DD2SxqKdNOdBxi5PJoT/8ORZWprOjLfWrZBG++qDw=="/>
+        </item>
+        <item>
             <title>0.2.0</title>
             <pubDate>Wed, 02 Sep 2026 21:44:32 +0100</pubDate>
             <sparkle:fullReleaseNotesLink>https://github.com/garrill/Radio/releases</sparkle:fullReleaseNotesLink>
