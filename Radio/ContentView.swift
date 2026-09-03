@@ -11,7 +11,6 @@ struct ContentView: View {
 
     @State private var pulseOpacity: Double = 1.0
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
-    @AppStorage("didSeeIntro") private var didSeeIntro = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,7 +38,7 @@ struct ContentView: View {
 
             Divider()
             VStack(spacing: 0) {
-                MenuRowButton(icon: "macwindow", label: "Website") {
+                MenuRowButton(icon: "globe", label: "Website") {
                     if let url = URL(string: "https://nts.live") {
                         #if os(macOS)
                         NSWorkspace.shared.open(url)
@@ -96,17 +95,12 @@ struct ContentView: View {
         }
         .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
         .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
-        .overlay(alignment: .top) { introHint }
         .padding(24) // Room for shadow to render beyond panel edge
-        .onChange(of: player.playingChannel) { _, channel in
-            // Once they've started playback they've found the app — retire the intro hint.
-            if channel != nil { didSeeIntro = true }
-        }
     }
 
     // MARK: - Top Banner
 
-    /// At most one of: offline notice, playback-failed notice, or the one-time intro hint.
+    /// At most one of: offline notice or playback-failed notice.
     @ViewBuilder private var topBanner: some View {
         if ntsService.isOffline {
             bannerRow {
@@ -122,28 +116,6 @@ struct ContentView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.accentColor)
             }
-        }
-    }
-
-    /// One-time hint on first launch, floated over the panel so it never disturbs the
-    /// fixed panel height. Clears on first interaction or when playback starts.
-    @ViewBuilder private var introHint: some View {
-        if !didSeeIntro {
-            HStack(spacing: 6) {
-                Image(systemName: "hand.wave.fill").font(.system(size: 11))
-                Text("Radio lives in your menu bar — click the icon any time")
-                    .font(.system(size: 11))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: 240)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.separator))
-            .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
-            .padding(.top, 8)
-            .transition(.opacity)
-            .onTapGesture { withAnimation { didSeeIntro = true } }
         }
     }
 

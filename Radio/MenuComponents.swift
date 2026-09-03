@@ -79,12 +79,13 @@ struct SettingsMenuButton: View {
         .onHover { isHovered = $0 }
         .simultaneousGesture(TapGesture().onEnded {
             NSApp.activate(ignoringOtherApps: true)
-            // After SettingsLink shows/creates the window, bring it to front.
-            // NSPanel is our menu panel; windows with "Tracklist" in the title are tracklist windows.
-            // The settings window is the only remaining NSWindow.
+            // After SettingsLink shows/creates the window, bring it to front. Match the
+            // SwiftUI Settings scene by its identifier — filtering NSApp.windows by
+            // exclusion can otherwise land on the private NSStatusBarWindow (which refuses
+            // to become key, logging a makeKeyWindow warning).
             DispatchQueue.main.async {
                 NSApp.windows
-                    .first { !($0 is NSPanel) && !$0.title.contains("Tracklist") }?
+                    .first { $0.identifier?.rawValue == "com_apple_SwiftUI_Settings_window" }?
                     .makeKeyAndOrderFront(nil)
             }
         })

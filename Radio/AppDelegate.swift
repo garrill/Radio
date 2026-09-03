@@ -39,16 +39,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             guard let self, self.panel.isVisible else { return }
             Log.lifecycle.debug("Woke from sleep — refetching")
-            self.ntsService.fetch()
+            // The observer is registered with `queue: .main`, so this closure always
+            // runs on the main thread — assert that to reach the @MainActor service.
+            MainActor.assumeIsolated { self.ntsService.fetch() }
         }
-        /// Open the menu automatically on launch so it can be triggered via app launcher shortcut
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.showPanel()
+        /// Open the menu automatically on launch so it can be triggered via app launcher shortcut —
+        /// but not when launchd started us at login, where only the menu-bar icon should appear.
+        if launchedAsLoginItem {
+            Log.lifecycle.debug("Launched at login — not auto-showing panel")
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.showPanel()
+            }
         }
         /// Pre-warm the WebContent process so opening the tracklist during playback doesn't stutter
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             TracklistWindowManager.shared.preload()
         }
+    }
+
+    /// True when launchd launched us as a login item (rather than the user opening the app).
+    /// The launch Apple event carries `keyAELaunchedAsLogInItem` in that case.
+    private var launchedAsLoginItem: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent else { return false }
+        return event.eventID == kAEOpenApplication
+            && event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
