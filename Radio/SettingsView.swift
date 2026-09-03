@@ -27,6 +27,11 @@ struct SettingsView: View {
             AboutSettingsView()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
+        // Fix the width on the TabView itself: otherwise the tab-bar pill lays
+        // out before the inner `.frame(width:)` propagates up from inside the
+        // Form on first open, and the segments collapse to label width until
+        // you switch tabs.
+        .frame(width: 380)
         .background(WindowButtonHider().frame(width: 0, height: 0))
     }
 }

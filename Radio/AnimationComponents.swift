@@ -103,19 +103,108 @@ private struct SwiftUILiveDot: View {
 
 // MARK: - Waveform Animation
 
+/// Five-bar "equaliser" shown on the artwork while a stream is playing. `isActive` should
+/// track panel visibility so the bars only animate while the panel is on screen.
 struct WaveformView: View {
-    @State private var phase = false
+    var isActive: Bool = true
 
-    private let heights: [[CGFloat]] = [
+    var body: some View {
+        #if os(macOS)
+        CoreAnimationWaveform(isActive: isActive)
+            .frame(width: WaveformMetrics.width, height: WaveformMetrics.maxBarHeight)
+        #else
+        SwiftUIWaveform(isActive: isActive)
+        #endif
+    }
+}
+
+private enum WaveformMetrics {
+    static let barWidth: CGFloat = 2.5
+    static let spacing: CGFloat = 2
+    static let barCount = 5
+    static let maxBarHeight: CGFloat = 14
+    static let width = CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * spacing
+
+    /// Two keyframes the bars ease between; every value is <= `maxBarHeight`.
+    static let heights: [[CGFloat]] = [
         [4, 14, 8, 12, 5],
         [10, 6, 14, 4, 12]
     ]
+}
+
+#if os(macOS)
+/// Like `CoreAnimationLiveDot`: the endless bar animation runs on the render server via
+/// `CABasicAnimation`, so it never wakes SwiftUI's update loop and never forces a panel +
+/// `glassEffect` display-list recommit. A `.repeatForever` SwiftUI animation here instead
+/// costs ~30% CPU while the panel is open (~2% otherwise).
+private struct CoreAnimationWaveform: NSViewRepresentable {
+    let isActive: Bool
+
+    func makeNSView(context: Context) -> NSView {
+        let m = WaveformMetrics.self
+        let view = NSView(frame: CGRect(x: 0, y: 0, width: m.width, height: m.maxBarHeight))
+        view.wantsLayer = true
+
+        for i in 0..<m.barCount {
+            let bar = CALayer()
+            // Anchor at the bottom edge so scaling `transform.scale.y` grows the bar upward.
+            bar.anchorPoint = CGPoint(x: 0.5, y: 0)
+            bar.bounds = CGRect(x: 0, y: 0, width: m.barWidth, height: m.maxBarHeight)
+            bar.position = CGPoint(x: CGFloat(i) * (m.barWidth + m.spacing) + m.barWidth / 2, y: 0)
+            bar.cornerRadius = m.barWidth / 2
+            bar.backgroundColor = NSColor.white.cgColor
+            // Resting state matches the animation's `fromValue`, so there's no snap on add/remove.
+            bar.transform = CATransform3DMakeScale(1, m.heights[0][i] / m.maxBarHeight, 1)
+            view.layer?.addSublayer(bar)
+            context.coordinator.bars.append(bar)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.setActive(isActive)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var bars: [CALayer] = []
+
+        func setActive(_ active: Bool) {
+            let m = WaveformMetrics.self
+            for (i, bar) in bars.enumerated() {
+                if active {
+                    guard bar.animation(forKey: "eq") == nil else { continue }
+                    let anim = CABasicAnimation(keyPath: "transform.scale.y")
+                    anim.fromValue = m.heights[0][i] / m.maxBarHeight
+                    anim.toValue = m.heights[1][i] / m.maxBarHeight
+                    anim.duration = 0.45
+                    anim.autoreverses = true
+                    anim.repeatCount = .infinity
+                    anim.timeOffset = Double(i) * 0.09
+                    anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    anim.isRemovedOnCompletion = false
+                    bar.add(anim, forKey: "eq")
+                } else {
+                    bar.removeAnimation(forKey: "eq")
+                }
+            }
+        }
+    }
+}
+#else
+private struct SwiftUIWaveform: View {
+    let isActive: Bool
+    @State private var phase = false
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<5, id: \.self) { i in
+        HStack(spacing: WaveformMetrics.spacing) {
+            ForEach(0..<WaveformMetrics.barCount, id: \.self) { i in
                 Capsule()
-                    .frame(width: 2.5, height: phase ? heights[1][i] : heights[0][i])
+                    .frame(
+                        width: WaveformMetrics.barWidth,
+                        height: phase ? WaveformMetrics.heights[1][i] : WaveformMetrics.heights[0][i]
+                    )
                     .animation(
                         .easeInOut(duration: 0.45)
                             .repeatForever()
@@ -124,6 +213,8 @@ struct WaveformView: View {
                     )
             }
         }
-        .onAppear { phase = true }
+        .onAppear { phase = isActive }
+        .onChange(of: isActive) { phase = $0 }
     }
 }
+#endif
