@@ -66,6 +66,30 @@ class TracklistWindowManager {
         scheduleIdleBlank(for: channel)
     }
 
+    /// Wipes cookies and storage for the shared tracklist data store so a tester can
+    /// sign out of NTS / switch accounts. Visible windows are reloaded, hidden ones
+    /// blanked, so no window is left showing a now-stale signed-in page.
+    func clearCache() async {
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        await withCheckedContinuation { continuation in
+            Self.dataStore.removeData(ofTypes: types, modifiedSince: .distantPast) {
+                continuation.resume()
+            }
+        }
+        Log.tracklist.notice("Cleared tracklist web data")
+        for (channel, entry) in entries {
+            entry.idleBlank?.cancel()
+            entry.idleBlank = nil
+            if entry.window.isVisible {
+                entry.webView.load(URLRequest(url: tracklistURL(for: channel)))
+                entry.isBlank = false
+            } else {
+                entry.webView.load(URLRequest(url: Self.blankURL))
+                entry.isBlank = true
+            }
+        }
+    }
+
     // MARK: - Idle blanking
 
     private func scheduleIdleBlank(for channel: RadioChannel) {

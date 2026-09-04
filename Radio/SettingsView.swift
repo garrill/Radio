@@ -1,6 +1,7 @@
 #if os(macOS)
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - Window button hider
 
@@ -24,6 +25,8 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView()
                 .tabItem { Label("General", systemImage: "gear") }
+            DebugSettingsView()
+                .tabItem { Label("Debug", systemImage: "ladybug") }
             AboutSettingsView()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
@@ -75,6 +78,77 @@ struct GeneralSettingsView: View {
         .frame(width: 380)
         .padding(.bottom, 8)
         .onAppear { openAtLogin = LoginItem.isEnabled }
+    }
+}
+
+// MARK: - Debug
+
+struct DebugSettingsView: View {
+    @State private var clearingCache = false
+    @State private var status: String?
+
+    var body: some View {
+        Form {
+            Section("Logs") {
+                Button("Save Logs…") { save() }
+                Text("Writes a diagnostic log file you can send to the developer when reporting a problem.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Tracklist") {
+                Button(role: .destructive, action: clearCache) {
+                    HStack(spacing: 6) {
+                        if clearingCache { ProgressView().controlSize(.small) }
+                        Text("Clear Tracklist Cache")
+                    }
+                }
+                .disabled(clearingCache)
+
+                Text("Signs you out of NTS in the tracklist windows so you can switch to another account.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+
+            if let status {
+                Text(status)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 380)
+        .padding(.bottom, 8)
+    }
+
+    private func save() {
+        status = nil
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "radio-logs-\(Self.fileStamp()).txt"
+        panel.allowedContentTypes = [.plainText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try LogExport.write(to: url)
+            status = "Saved \(url.lastPathComponent)"
+        } catch {
+            status = "Couldn’t save logs: \(error.localizedDescription)"
+        }
+    }
+
+    private func clearCache() {
+        clearingCache = true
+        status = nil
+        Task {
+            await TracklistWindowManager.shared.clearCache()
+            clearingCache = false
+            status = "Tracklist cache cleared."
+        }
+    }
+
+    private static func fileStamp() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd-HHmmss"
+        return f.string(from: Date())
     }
 }
 
