@@ -26,9 +26,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupPanel()
         setupStatusItem()
         observePlayingChannel()
+        observeMixtapeConfig()
         DiagnosticsMonitor.shared.start()
         ntsService.startMonitor()
         ntsService.startPolling()
+        ntsService.fetchMixtapes()
         player.setup()
         _ = UpdaterHolder.shared   // start Sparkle's background update checks
 
@@ -67,7 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard player.playingChannel != nil else { return .terminateNow }
+        guard player.playing != nil else { return .terminateNow }
         player.fadeOutAndStop {
             NSApplication.shared.reply(toApplicationShouldTerminate: true)
         }
@@ -112,7 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               let buttonWindow = button.window else { return }
 
         let artworkSize = UserDefaults.standard.string(forKey: "artworkSize").flatMap(ArtworkSize.init) ?? .medium
-        let size = AppDelegate.panelSize(for: artworkSize)
+        let size = AppDelegate.panelSize(for: artworkSize, mixtapeCount: enabledMixtapeCount())
         panel.setContentSize(size)
 
         let buttonFrame = buttonWindow.frame
@@ -145,12 +147,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private static func panelSize(for artworkSize: ArtworkSize) -> NSSize {
+    private static func panelSize(for artworkSize: ArtworkSize, mixtapeCount: Int) -> NSSize {
         // Row: top(12) + artwork + bottom(10) + progressBar(27) + nextUp(24) = artwork + 73
         // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(76) + shadow-padding(36)
         // buttons(): Website/Chatroom/Settings/Quit — ~24pt each.
         // Width: card(280) + shadow-padding(24*2) — must match ContentView's outer .frame(width:)/.padding(24)
-        return NSSize(width: 328, height: artworkSize.dimension * 2 + 262)
+        let base = artworkSize.dimension * 2 + 262
+        return NSSize(width: 328, height: base + MixtapeGrid.sectionHeight(count: mixtapeCount))
+    }
+
+    /// Number of enabled mixtapes that actually exist in the loaded catalogue —
+    /// read straight from `UserDefaults` (like `artworkSize`) so it is available
+    /// before any SwiftUI view has mounted.
+    private func enabledMixtapeCount() -> Int {
+        guard UserDefaults.standard.bool(forKey: "showInfiniteMixtapes") else { return 0 }
+        let raw = UserDefaults.standard.string(forKey: "enabledMixtapes") ?? ""
+        let aliases = Set(MixtapeSelection.aliases(from: raw))
+        guard !aliases.isEmpty else { return 0 }
+        return ntsService.mixtapes.filter { aliases.contains($0.alias) }.count
     }
 
     private func closePanel() {
@@ -188,26 +202,80 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Dynamic Icon
 
     private func observePlayingChannel() {
-        player.$playingChannel
+        player.$playing
             .receive(on: RunLoop.main)
-            .sink { [weak self] channel in
+            .sink { [weak self] item in
                 guard let self, let button = self.statusItem.button else { return }
-                TracklistWindowManager.shared.isPlaybackActive = channel != nil
-                if let channel {
-                    let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .medium)
-                    let img = NSImage(
-                        systemSymbolName: channel.menuBarSymbol,
-                        accessibilityDescription: channel.label
-                    )?.withSymbolConfiguration(config)
-                    img?.size = NSSize(width: 18, height: 18)
-                    img?.isTemplate = true
-                    button.image = img
-                } else {
+                TracklistWindowManager.shared.isPlaybackActive = item != nil
+                switch item {
+                case .channel(let channel)?:
+                    button.image = Self.symbolIcon(named: channel.menuBarSymbol, label: channel.label)
+                case .mixtape(let mixtape)?:
+                    self.setMixtapeMenuBarIcon(for: mixtape, button: button)
+                case nil:
                     button.image = .ntsMenuBarIcon
                     button.image?.isTemplate = true
                 }
             }
             .store(in: &cancellables)
+    }
+
+    private static func symbolIcon(named name: String, label: String) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .medium)
+        let img = NSImage(systemSymbolName: name, accessibilityDescription: label)?
+            .withSymbolConfiguration(config)
+        img?.size = NSSize(width: 18, height: 18)
+        img?.isTemplate = true
+        return img
+    }
+
+    // MARK: - Mixtape config
+
+    /// Keeps `player.mixtapeStations` (the media-key rotation) current, and stops
+    /// playback when the mixtape that's playing is switched off or hidden.
+    private func observeMixtapeConfig() {
+        ntsService.$mixtapes
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.syncMixtapeConfig() }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.syncMixtapeConfig() }
+            .store(in: &cancellables)
+
+        syncMixtapeConfig()
+    }
+
+    private func syncMixtapeConfig() {
+        let showMixtapes = UserDefaults.standard.bool(forKey: "showInfiniteMixtapes")
+        let raw = UserDefaults.standard.string(forKey: "enabledMixtapes") ?? ""
+        let enabled = showMixtapes
+            ? ntsService.mixtapes.filter { MixtapeSelection.isEnabled($0.alias, in: raw) }
+            : []
+        player.mixtapeStations = enabled
+
+        // Playing a mixtape that's just been deselected or hidden? Stop it.
+        if case .mixtape(let playing)? = player.playing,
+           !enabled.contains(where: { $0.alias == playing.alias }) {
+            player.fadeOutAndStop()
+        }
+    }
+
+    /// Shows a fallback glyph immediately, then swaps in the mixtape's own icon
+    /// once it downloads — but only if that mixtape is still the one playing.
+    private func setMixtapeMenuBarIcon(for mixtape: Mixtape, button: NSStatusBarButton) {
+        if let cached = MixtapeMenuBarIcon.cached(for: mixtape) {
+            button.image = cached
+            return
+        }
+        button.image = Self.symbolIcon(named: MixtapeMenuBarIcon.fallbackSymbol, label: mixtape.title)
+        Task { [weak self] in
+            guard let image = await MixtapeMenuBarIcon.image(for: mixtape) else { return }
+            guard let self, self.player.playing == .mixtape(mixtape),
+                  let button = self.statusItem.button else { return }
+            button.image = image
+        }
     }
 }
 #endif

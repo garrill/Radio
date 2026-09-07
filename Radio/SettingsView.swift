@@ -25,6 +25,8 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView()
                 .tabItem { Label("General", systemImage: "gear") }
+            MixtapeSettingsView()
+                .tabItem { Label("Mixtapes", systemImage: "square.stack") }
             DebugSettingsView()
                 .tabItem { Label("Debug", systemImage: "ladybug") }
             AboutSettingsView()

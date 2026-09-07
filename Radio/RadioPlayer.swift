@@ -41,14 +41,57 @@ enum RadioChannel: Int, CaseIterable, Identifiable {
     var previous: RadioChannel { self == .two ? .one : .two }
 }
 
+/// What the single `AVPlayer` is currently pointed at — a live NTS channel or an
+/// Infinite Mixtape. Equality is by identity (channel case / mixtape alias) so a
+/// background refresh of the mixtape list never drops the "playing" highlight.
+enum PlayingItem: Equatable, Sendable {
+    case channel(RadioChannel)
+    case mixtape(Mixtape)
+
+    var streamURL: URL {
+        switch self {
+        case .channel(let c): c.streamURL
+        case .mixtape(let m): m.streamURL
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .channel(let c): c.label
+        case .mixtape(let m): m.title
+        }
+    }
+
+    /// The live channel, when this is a channel; `nil` for a mixtape.
+    var channel: RadioChannel? {
+        if case .channel(let c) = self { return c }
+        return nil
+    }
+
+    static func == (lhs: PlayingItem, rhs: PlayingItem) -> Bool {
+        switch (lhs, rhs) {
+        case let (.channel(a), .channel(b)): return a == b
+        case let (.mixtape(a), .mixtape(b)): return a.alias == b.alias
+        default: return false
+        }
+    }
+}
+
 @MainActor
 class RadioPlayer: ObservableObject {
-    @Published var playingChannel: RadioChannel?
+    @Published var playing: PlayingItem?
+
+    /// Read-only convenience for call sites and tests that only care about live channels.
+    var playingChannel: RadioChannel? { playing?.channel }
     @Published var isBuffering = false
     @Published var isPanelVisible = false
     /// Set when a stream fails and the one automatic retry is also exhausted. Survives `stop()`
     /// so the panel can show a "playback stopped" state; cleared when playback next starts.
     @Published var streamFailed = false
+
+    /// Enabled mixtapes, in panel order. Media-key next/previous cycle through the
+    /// two live channels and then these. Kept current by `AppDelegate`.
+    var mixtapeStations: [Mixtape] = []
 
     private var player: AVPlayer?
     private var timeControlObserver: NSKeyValueObservation?
@@ -57,7 +100,7 @@ class RadioPlayer: ObservableObject {
     private var fadeTask: Task<Void, Never>?
     // Keeps the last broadcast so media key play can restore context
     private var lastBroadcast: Broadcast?
-    private var lastChannel: RadioChannel?
+    private var lastItem: PlayingItem?
 
     // Stream watchdog: exponential-backoff reconnects, plus a stall timer for the case
     // where the stream never errors but just sits in "buffering" forever.
@@ -74,13 +117,21 @@ class RadioPlayer: ObservableObject {
     }
 
     func toggle(channel: RadioChannel, broadcast: Broadcast? = nil) {
-        if playingChannel == channel {
-            Log.player.log("toggle: stopping \(channel.label, privacy: .public)")
+        toggle(.channel(channel), broadcast: broadcast)
+    }
+
+    func toggle(mixtape: Mixtape) {
+        toggle(.mixtape(mixtape))
+    }
+
+    func toggle(_ item: PlayingItem, broadcast: Broadcast? = nil) {
+        if playing == item {
+            Log.player.log("toggle: stopping \(item.label, privacy: .public)")
             fadeOutAndStop()
         } else {
-            Log.player.log("toggle: switching to \(channel.label, privacy: .public)")
+            Log.player.log("toggle: switching to \(item.label, privacy: .public)")
             fadeOutAndStop { [weak self] in
-                self?.play(channel: channel, broadcast: broadcast)
+                self?.play(item, broadcast: broadcast)
             }
         }
     }
@@ -115,7 +166,7 @@ class RadioPlayer: ObservableObject {
         itemStatusObserver?.invalidate()
         itemStatusObserver = nil
         player = nil
-        playingChannel = nil
+        playing = nil
         isBuffering = false
         artworkTask?.cancel()
         artworkTask = nil
@@ -127,27 +178,31 @@ class RadioPlayer: ObservableObject {
 
     /// Re-attempts the last stream the user asked for. Used by the panel's "playback stopped" retry.
     func retryLastStream() {
-        guard let channel = lastChannel ?? playingChannel else { return }
-        Log.player.notice("Manual retry of \(channel.label, privacy: .public)")
-        play(channel: channel, broadcast: lastBroadcast)
+        guard let item = lastItem ?? playing else { return }
+        Log.player.notice("Manual retry of \(item.label, privacy: .public)")
+        play(item, broadcast: lastBroadcast)
+    }
+
+    func play(channel: RadioChannel, broadcast: Broadcast? = nil, isReconnect: Bool = false) {
+        play(.channel(channel), broadcast: broadcast, isReconnect: isReconnect)
     }
 
     /// `isReconnect` keeps the watchdog's attempt counter across an automatic retry;
     /// a user-initiated play resets it.
-    func play(channel: RadioChannel, broadcast: Broadcast? = nil, isReconnect: Bool = false) {
+    func play(_ item: PlayingItem, broadcast: Broadcast? = nil, isReconnect: Bool = false) {
         stop()
         streamFailed = false
         if !isReconnect {
             reconnectAttempts = 0
-            Log.player.notice("Play \(channel.label, privacy: .public)")
+            Log.player.notice("Play \(item.label, privacy: .public)")
         }
 
-        let item = AVPlayerItem(url: channel.streamURL)
-        let newPlayer = AVPlayer(playerItem: item)
+        let avItem = AVPlayerItem(url: item.streamURL)
+        let newPlayer = AVPlayer(playerItem: avItem)
         player = newPlayer
-        playingChannel = channel
+        playing = item
         isBuffering = true
-        lastChannel = channel
+        lastItem = item
         lastBroadcast = broadcast
 
         timeControlObserver = newPlayer.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
@@ -171,7 +226,7 @@ class RadioPlayer: ObservableObject {
             }
         }
 
-        itemStatusObserver = item.observe(\.status, options: [.new]) { [weak self] playerItem, _ in
+        itemStatusObserver = avItem.observe(\.status, options: [.new]) { [weak self] playerItem, _ in
             guard playerItem.status == .failed else { return }
             let message = playerItem.error?.localizedDescription ?? "unknown error"
             Task { @MainActor [weak self] in
@@ -182,7 +237,7 @@ class RadioPlayer: ObservableObject {
         newPlayer.play()
 
         #if os(macOS)
-        updateNowPlaying(channel: channel, broadcast: broadcast)
+        updateNowPlaying(item: item, broadcast: broadcast)
         #endif
     }
 
@@ -192,7 +247,7 @@ class RadioPlayer: ObservableObject {
         stallTask?.cancel()
         stallTask = Task { [weak self] in
             try? await Task.sleep(for: self?.stallTimeout ?? .seconds(15))
-            guard let self, !Task.isCancelled, self.isBuffering, self.playingChannel != nil else { return }
+            guard let self, !Task.isCancelled, self.isBuffering, self.playing != nil else { return }
             self.handleStreamProblem("stalled while buffering")
         }
     }
@@ -200,7 +255,7 @@ class RadioPlayer: ObservableObject {
     /// Reconnect with exponential backoff (2 s, 4 s, 8 s); give up into `streamFailed`
     /// after `maxReconnectAttempts`.
     private func handleStreamProblem(_ reason: String) {
-        guard playingChannel != nil, let channel = lastChannel else { return }
+        guard playing != nil, let item = lastItem else { return }
         reconnectTask?.cancel()
         stallTask?.cancel()
         stallTask = nil
@@ -218,8 +273,8 @@ class RadioPlayer: ObservableObject {
         let broadcast = lastBroadcast
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
-            guard let self, !Task.isCancelled, self.playingChannel != nil else { return }
-            self.play(channel: channel, broadcast: broadcast, isReconnect: true)
+            guard let self, !Task.isCancelled, self.playing != nil else { return }
+            self.play(item, broadcast: broadcast, isReconnect: true)
         }
     }
 
@@ -233,10 +288,10 @@ class RadioPlayer: ObservableObject {
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if self.playingChannel != nil {
+                if self.playing != nil {
                     self.fadeOutAndStop()
                 } else {
-                    self.play(channel: self.lastChannel ?? .one, broadcast: self.lastBroadcast)
+                    self.play(self.lastItem ?? .channel(.one), broadcast: self.lastBroadcast)
                 }
             }
             return .success
@@ -246,7 +301,7 @@ class RadioPlayer: ObservableObject {
         center.playCommand.addTarget { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.play(channel: self.playingChannel ?? self.lastChannel ?? .one,
+                self.play(self.playing ?? self.lastItem ?? .channel(.one),
                           broadcast: self.lastBroadcast)
             }
             return .success
@@ -260,27 +315,40 @@ class RadioPlayer: ObservableObject {
 
         center.nextTrackCommand.isEnabled = true
         center.nextTrackCommand.addTarget { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.play(channel: (self.playingChannel ?? .one).next)
-            }
+            Task { @MainActor [weak self] in self?.cycleStation(by: 1) }
             return .success
         }
 
         center.previousTrackCommand.isEnabled = true
         center.previousTrackCommand.addTarget { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.play(channel: (self.playingChannel ?? .two).previous)
-            }
+            Task { @MainActor [weak self] in self?.cycleStation(by: -1) }
             return .success
         }
     }
 
-    func updateNowPlaying(channel: RadioChannel, broadcast: Broadcast?) {
+    /// The full media-key rotation: NTS 1, NTS 2, then the enabled mixtapes.
+    private var allStations: [PlayingItem] {
+        [.channel(.one), .channel(.two)] + mixtapeStations.map(PlayingItem.mixtape)
+    }
+
+    private func cycleStation(by delta: Int) {
+        let stations = allStations
+        guard !stations.isEmpty else { return }
+        let current = playing ?? lastItem
+        let index = current.flatMap { stations.firstIndex(of: $0) } ?? 0
+        let target = stations[(index + delta + stations.count) % stations.count]
+        play(target)
+    }
+
+    func updateNowPlaying(item: PlayingItem, broadcast: Broadcast?) {
+        let artist: String
+        switch item {
+        case .channel(let c): artist = c.label
+        case .mixtape: artist = "Infinite Mixtape"
+        }
         var info: [String: Any] = [
-            MPMediaItemPropertyTitle: broadcast?.title ?? channel.label,
-            MPMediaItemPropertyArtist: channel.label,
+            MPMediaItemPropertyTitle: broadcast?.title ?? item.label,
+            MPMediaItemPropertyArtist: artist,
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
         ]
@@ -289,12 +357,18 @@ class RadioPlayer: ObservableObject {
 
         // Fetch artwork asynchronously; cancel any previous fetch first.
         artworkTask?.cancel()
-        guard let artworkURL = broadcast?.artworkURL else { return }
-        artworkTask = Task { [weak self, channel] in
+        let artworkURL: URL? = {
+            switch item {
+            case .channel: return broadcast?.artworkURL
+            case .mixtape(let m): return m.artworkURL ?? broadcast?.artworkURL
+            }
+        }()
+        guard let artworkURL else { return }
+        artworkTask = Task { [weak self, item] in
             guard let (data, _) = try? await URLSession.shared.data(from: artworkURL),
                   !Task.isCancelled,
                   let image = NSImage(data: data),
-                  self?.playingChannel == channel else { return }
+                  self?.playing == item else { return }
             let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in image }
             info[MPMediaItemPropertyArtwork] = artwork
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info

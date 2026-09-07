@@ -10,22 +10,55 @@ class NTSService: ObservableObject {
     @Published var isRefreshing = false
     @Published var isOffline = false
 
+    /// The Infinite Mixtape catalogue. Static list — fetched once, not polled.
+    @Published var mixtapes: [Mixtape] = []
+
     private var pollingTask: Task<Void, Never>?
     private var fetchTask: Task<Void, Never>?
+    private var mixtapesFetchTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
     private var lastFetchDate: Date?
     private let session: URLSession
     private let apiURL: URL
+    private let mixtapesURL: URL
+    /// Where the last-good mixtape list is cached so Settings and the panel populate
+    /// instantly and offline. `nil` disables persistence (tests).
+    private let mixtapesCacheURL: URL?
 
     init(session: URLSession = .shared,
-         apiURL: URL = URL(string: "https://www.nts.live/api/v2/live")!) {
+         apiURL: URL = URL(string: "https://www.nts.live/api/v2/live")!,
+         mixtapesURL: URL = URL(string: "https://www.nts.live/api/v2/mixtapes")!,
+         mixtapesCacheURL: URL? = NTSService.defaultMixtapesCacheURL) {
         self.session = session
         self.apiURL = apiURL
+        self.mixtapesURL = mixtapesURL
+        self.mixtapesCacheURL = mixtapesCacheURL
+
+        if let mixtapesCacheURL,
+           let data = try? Data(contentsOf: mixtapesCacheURL),
+           let cached = try? JSONDecoder().decode(MixtapesResponse.self, from: data) {
+            mixtapes = cached.results
+        }
+    }
+
+    nonisolated static var defaultMixtapesCacheURL: URL? {
+        guard let dir = try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true
+        ) else { return nil }
+        let radioDir = dir.appendingPathComponent("Radio", isDirectory: true)
+        try? FileManager.default.createDirectory(at: radioDir, withIntermediateDirectories: true)
+        return radioDir.appendingPathComponent("mixtapes.json")
     }
 
     /// Awaits the in-flight fetch, if any. Test hook — production code never needs to wait on a fetch.
     func awaitCurrentFetch() async {
         await fetchTask?.value
+    }
+
+    /// Awaits the in-flight mixtapes fetch, if any. Test hook.
+    func awaitCurrentMixtapesFetch() async {
+        await mixtapesFetchTask?.value
     }
 
     /// Starts the network path monitor. Call once at launch; the monitor runs for the app's lifetime.
@@ -109,6 +142,35 @@ class NTSService: ObservableObject {
                 }
             } catch {
                 Log.service.error("Request failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    /// One-shot fetch of the Infinite Mixtape catalogue. The list is effectively
+    /// static, so this is called once at launch (and cheaply on the Settings pane
+    /// appearing) rather than polled. Keeps the last-good list on any failure.
+    func fetchMixtapes() {
+        guard mixtapesFetchTask == nil || mixtapesFetchTask!.isCancelled else { return }
+        mixtapesFetchTask = Task {
+            defer { mixtapesFetchTask = nil }
+            var request = URLRequest(url: mixtapesURL)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            do {
+                let (data, response) = try await session.data(for: request)
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                do {
+                    let decoded = try JSONDecoder().decode(MixtapesResponse.self, from: data)
+                    mixtapes = decoded.results
+                    Log.service.debug("Fetched \(decoded.results.count) mixtapes (HTTP \(status))")
+                    if let mixtapesCacheURL {
+                        try? JSONEncoder().encode(decoded).write(to: mixtapesCacheURL, options: .atomic)
+                    }
+                } catch {
+                    let prefix = String(decoding: data.prefix(400), as: UTF8.self)
+                    Log.service.error("Mixtapes decode failed (HTTP \(status)): \(error.localizedDescription, privacy: .public) — body starts: \(prefix, privacy: .public)")
+                }
+            } catch {
+                Log.service.error("Mixtapes request failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

@@ -11,6 +11,15 @@ struct ContentView: View {
 
     @State private var pulseOpacity: Double = 1.0
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
+    @AppStorage("showInfiniteMixtapes") private var showInfiniteMixtapes = false
+    @AppStorage("enabledMixtapes") private var enabledMixtapes = ""
+
+    private var enabledMixtapeList: [Mixtape] {
+        guard showInfiniteMixtapes else { return [] }
+        return ntsService.mixtapes.filter {
+            MixtapeSelection.isEnabled($0.alias, in: enabledMixtapes)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +43,12 @@ struct ContentView: View {
                             }
                         }
                     }
+            }
+
+            let mixtapes = enabledMixtapeList
+            if !mixtapes.isEmpty {
+                Divider()
+                MixtapeGridView(mixtapes: mixtapes)
             }
 
             Divider()

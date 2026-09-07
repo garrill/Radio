@@ -14,11 +14,61 @@ import Testing
 @Suite("RadioPlayer state")
 struct RadioPlayerTests {
 
+    private static func makeMixtape(_ alias: String = "poolside") throws -> Mixtape {
+        let json = """
+        { "results": [ {
+          "mixtape_alias": "\(alias)", "title": "\(alias.capitalized)", "subtitle": "", "description": "",
+          "audio_stream_endpoint": "https://stream-mixtape-geo.ntslive.net/mixtape4"
+        } ] }
+        """
+        return try JSONDecoder().decode(MixtapesResponse.self, from: Data(json.utf8)).results[0]
+    }
+
     @Test func startsStopped() {
         let p = RadioPlayer()
+        #expect(p.playing == nil)
         #expect(p.playingChannel == nil)
         #expect(p.isBuffering == false)
         #expect(p.isPanelVisible == false)
+    }
+
+    @Test func toggleMixtapeStartsAndStopsPlayback() async throws {
+        let p = RadioPlayer()
+        defer { p.stop() }
+        let mixtape = try Self.makeMixtape()
+
+        p.toggle(mixtape: mixtape)
+        #expect(p.playing == .mixtape(mixtape))
+        #expect(p.playingChannel == nil)   // a mixtape is not a channel
+        #expect(p.isBuffering == true)
+
+        p.toggle(mixtape: mixtape)
+        try await waitUntil { p.playing == nil }
+    }
+
+    @Test func switchingFromChannelToMixtapeReplacesPlayback() async throws {
+        let p = RadioPlayer()
+        defer { p.stop() }
+        let mixtape = try Self.makeMixtape()
+
+        p.play(channel: .one)
+        p.toggle(mixtape: mixtape)
+
+        try await waitUntil { p.playing == .mixtape(mixtape) }
+        #expect(p.playingChannel == nil)
+    }
+
+    @Test func retryLastStreamResumesAMixtape() throws {
+        let p = RadioPlayer()
+        defer { p.stop() }
+        let mixtape = try Self.makeMixtape()
+
+        p.play(.mixtape(mixtape))
+        p.stop()
+        #expect(p.playing == nil)
+
+        p.retryLastStream()
+        #expect(p.playing == .mixtape(mixtape))
     }
 
     @Test func playSetsChannelAndEntersBuffering() {

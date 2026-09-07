@@ -15,7 +15,10 @@ import Testing
 struct NTSServiceTests {
 
     private func makeService() -> NTSService {
-        NTSService(session: .stubbed, apiURL: URL(string: "https://test.invalid/live")!)
+        NTSService(session: .stubbed,
+                   apiURL: URL(string: "https://test.invalid/live")!,
+                   mixtapesURL: URL(string: "https://test.invalid/mixtapes")!,
+                   mixtapesCacheURL: nil)
     }
 
     private func liveJSON(channelCount: Int, titlePrefix: String = "Show") throws -> Data {
@@ -85,6 +88,42 @@ struct NTSServiceTests {
 
         #expect(s.channels.isEmpty)
         #expect(s.isLoading == false)
+    }
+
+    @Test func fetchMixtapesDecodesCatalogue() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub.data = Data("""
+        { "results": [
+          { "mixtape_alias": "poolside", "title": "Poolside", "subtitle": "", "description": "",
+            "audio_stream_endpoint": "https://stream-mixtape-geo.ntslive.net/mixtape4" },
+          { "mixtape_alias": "slow-focus", "title": "Slow Focus", "subtitle": "", "description": "",
+            "audio_stream_endpoint": "https://stream-mixtape-geo.ntslive.net/mixtape" }
+        ] }
+        """.utf8)
+
+        let s = makeService()
+        s.fetchMixtapes()
+        await s.awaitCurrentMixtapesFetch()
+
+        #expect(s.mixtapes.map(\.alias) == ["poolside", "slow-focus"])
+    }
+
+    @Test func fetchMixtapesKeepsLastGoodOnFailure() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub.data = Data("""
+        { "results": [ { "mixtape_alias": "poolside", "title": "Poolside", "subtitle": "", "description": "",
+          "audio_stream_endpoint": "https://stream-mixtape-geo.ntslive.net/mixtape4" } ] }
+        """.utf8)
+
+        let s = makeService()
+        s.fetchMixtapes()
+        await s.awaitCurrentMixtapesFetch()
+        #expect(s.mixtapes.count == 1)
+
+        StubURLProtocol.stub.error = URLError(.notConnectedToInternet)
+        s.fetchMixtapes()
+        await s.awaitCurrentMixtapesFetch()
+        #expect(s.mixtapes.count == 1)
     }
 
     @Test func stopPollingCancelsTheLoop() async throws {
