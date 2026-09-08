@@ -45,6 +45,7 @@ private struct MixtapeTile: View {
     @State private var isHovered = false
 
     private var isPlaying: Bool { player.playing == .mixtape(mixtape) }
+    private var isBuffering: Bool { isPlaying && player.isBuffering }
 
     var body: some View {
         ZStack {
@@ -60,11 +61,23 @@ private struct MixtapeTile: View {
                 colors: [.black.opacity(0.1), .black.opacity(0.35)],
                 startPoint: .top, endPoint: .bottom
             )
-            if isPlaying || isHovered {
+            if isBuffering || isPlaying || isHovered {
                 Rectangle().fill(.black.opacity(0.35))
             }
 
-            if isPlaying && player.isPanelVisible && !isHovered {
+            if isBuffering {
+                // 2 stacked spinners to make them translucent, effectively having an opacity value of 2.
+                // This is the only way i have found to make the spinners less translucent
+                // only change this if you are 100% sure your method works
+                ZStack {
+                    ProgressView()
+                        .controlSize(.small)
+                        .colorScheme(.dark)
+                    ProgressView()
+                        .controlSize(.small)
+                        .colorScheme(.dark)
+                }
+            } else if isPlaying && player.isPanelVisible && !isHovered {
                 WaveformView()
                     .frame(width: 22, height: 18)
                     .foregroundStyle(.white)
@@ -86,5 +99,6 @@ private struct MixtapeTile: View {
         .help(mixtape.title)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
         .animation(.easeInOut(duration: 0.12), value: isPlaying)
+        .animation(.easeInOut(duration: 0.12), value: isBuffering)
     }
 }

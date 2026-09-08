@@ -10,9 +10,6 @@ struct MixtapeSettingsView: View {
         Form {
             Section {
                 Toggle("Show infinite mixtapes", isOn: $showInfiniteMixtapes)
-                Text("Adds a row of NTS Infinite Mixtape streams to the main window, below Stream 2.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
             }
 
             Section("Mixtapes") {
@@ -42,7 +39,6 @@ struct MixtapeSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 380)
-        .padding(.bottom, 8)
         .onAppear { ntsService.fetchMixtapes() }
     }
 
