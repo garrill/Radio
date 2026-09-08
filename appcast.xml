@@ -6,6 +6,28 @@
         <description>Updates for Radio, the NTS menu-bar app.</description>
         <language>en</language>
         <item>
+            <title>0.4.0</title>
+            <pubDate>Tue, 08 Sep 2026 21:25:03 +0100</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/garrill/Radio/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>36</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.2</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[### v0.4.0 (September 8 2026)
+
+
+### Infinite Mixtapes
+
+- Added new Settings pane with toggle for Infinite Mixtapes
+- Picker to show the mixtapes you want to see
+- Auto layout of mixtapes in window
+- Debug option in Settings to export logs
+- Option to clear cache so you can log out of Tracklist window
+- Fixed channel row being too wide if there was a long location name
+]]></description>
+            <enclosure url="https://github.com/garrill/Radio/releases/download/v0.4.0/Radio-0.4.0.dmg" length="2887569" type="application/octet-stream" sparkle:edSignature="8yzM5UyJ2la6sBx2n5yCSwVCa3SKjTA+59od7gyvTuq/LiTIlvmLsBhZgBI7eZyamI2QKkwVI9l+n6hxXohmBg=="/>
+        </item>
+        <item>
             <title>0.3.0</title>
             <pubDate>Thu, 03 Sep 2026 22:42:16 +0100</pubDate>
             <sparkle:fullReleaseNotesLink>https://github.com/garrill/Radio/releases</sparkle:fullReleaseNotesLink>
