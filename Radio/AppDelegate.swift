@@ -114,7 +114,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               let buttonWindow = button.window else { return }
 
         let artworkSize = UserDefaults.standard.string(forKey: "artworkSize").flatMap(ArtworkSize.init) ?? .medium
-        let size = AppDelegate.panelSize(for: artworkSize, mixtapeCount: enabledMixtapeCount())
+        let defaults = UserDefaults.standard
+        let size = AppDelegate.panelSize(
+            for: artworkSize,
+            mixtapeCount: enabledMixtapeCount(),
+            bottomMenuRows: Self.bottomMenuRowCount(),
+            showProgress: defaults.object(forKey: "showProgress") as? Bool ?? true,
+            showUpNext: defaults.object(forKey: "showUpNext") as? Bool ?? true
+        )
         panel.setContentSize(size)
 
         let buttonFrame = buttonWindow.frame
@@ -147,13 +154,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private static func panelSize(for artworkSize: ArtworkSize, mixtapeCount: Int) -> NSSize {
+    private static func panelSize(
+        for artworkSize: ArtworkSize,
+        mixtapeCount: Int,
+        bottomMenuRows: Int,
+        showProgress: Bool,
+        showUpNext: Bool
+    ) -> NSSize {
         // Row: top(12) + artwork + bottom(10) + progressBar(27) + nextUp(24) = artwork + 73
         // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(76) + shadow-padding(36)
-        // buttons(): Website/Chatroom/Settings/Quit — ~24pt each.
+        // The 262 constant assumes a FOUR-row bottom menu (~24pt/row) plus the per-row
+        // progressBar(27) + nextUp(24) for BOTH channel rows. The menu is now variable
+        // — Volume/Website/Chatroom/Schedule optional, Settings/Quit always present — so
+        // adjust by ±24 per visible menu row above/below four; and drop 27/24 per channel
+        // row when "Show progress" / "Show up next" are off.
         // Width: card(280) + shadow-padding(24*2) — must match ContentView's outer .frame(width:)/.padding(24)
         let base = artworkSize.dimension * 2 + 262
+            + CGFloat(bottomMenuRows - 4) * 24
+            - (showProgress ? 0 : 27 * 2)
+            - (showUpNext ? 0 : 24 * 2)
         return NSSize(width: 328, height: base + MixtapeGrid.sectionHeight(count: mixtapeCount))
+    }
+
+    /// Count of currently-visible bottom-menu rows, read straight from `UserDefaults`
+    /// (like `artworkSize`) so it's available before any SwiftUI view has mounted.
+    /// Must track the `if` conditions in `ContentView`'s bottom-menu `VStack`.
+    private static func bottomMenuRowCount() -> Int {
+        let d = UserDefaults.standard
+        var rows = 2 // Settings + Quit — always present
+        if d.bool(forKey: "showVolumeControl") { rows += 1 }
+        if d.object(forKey: "showWebsiteLink") as? Bool ?? true { rows += 1 }
+        if (d.string(forKey: "chatroomLinkType") ?? "web") != "hidden" { rows += 1 }
+        if (d.string(forKey: "scheduleLinkType") ?? "default") != "hidden" { rows += 1 }
+        return rows
     }
 
     /// Number of enabled mixtapes that actually exist in the loaded catalogue —

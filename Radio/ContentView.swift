@@ -11,6 +11,9 @@ struct ContentView: View {
 
     @State private var pulseOpacity: Double = 1.0
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
+    @AppStorage("scheduleLinkType") private var scheduleLinkType = "default"
+    @AppStorage("showVolumeControl") private var showVolumeControl = false
+    @AppStorage("showWebsiteLink") private var showWebsiteLink = true
     @AppStorage("showInfiniteMixtapes") private var showInfiniteMixtapes = false
     @AppStorage("enabledMixtapes") private var enabledMixtapes = ""
 
@@ -53,18 +56,28 @@ struct ContentView: View {
 
             Divider()
             VStack(spacing: 0) {
-                MenuRowButton(icon: "globe", label: "Website") {
-                    if let url = URL(string: "https://nts.live") {
-                        #if os(macOS)
-                        NSWorkspace.shared.open(url)
-                        #else
-                        UIApplication.shared.open(url)
-                        #endif
+                if showVolumeControl {
+                    VolumeMenuRow()
+                }
+                if showWebsiteLink {
+                    MenuRowButton(icon: "globe", label: "Website") {
+                        if let url = URL(string: "https://nts.live") {
+                            #if os(macOS)
+                            NSWorkspace.shared.open(url)
+                            #else
+                            UIApplication.shared.open(url)
+                            #endif
+                        }
                     }
                 }
                 if chatroomLinkType != "hidden" {
                     MenuRowButton(icon: "bubble.left", label: "Chatroom") {
                         openChatroom()
+                    }
+                }
+                if scheduleLinkType != "hidden" {
+                    MenuRowButton(icon: "calendar", label: "Schedule") {
+                        openSchedule()
                     }
                 }
                 #if os(macOS)
@@ -152,6 +165,15 @@ struct ContentView: View {
         } else {
             url = URL(string: "https://discord.com/channels/909834111592591421/933364043459227708")!
         }
+        NSWorkspace.shared.open(url)
+        #endif
+    }
+
+    private func openSchedule() {
+        #if os(macOS)
+        let url = scheduleLinkType == "personal"
+            ? URL(string: "https://www.nts.live/schedule/my")!
+            : URL(string: "https://www.nts.live/schedule")!
         NSWorkspace.shared.open(url)
         #endif
     }
