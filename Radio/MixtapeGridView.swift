@@ -47,6 +47,16 @@ private struct MixtapeTile: View {
     private var isPlaying: Bool { player.playing == .mixtape(mixtape) }
     private var isBuffering: Bool { isPlaying && player.isBuffering }
 
+    /// Which of the three crossfading centre glyphs should be visible. All three are kept
+    /// mounted (see `body`) so a state change fades one out while the next fades in, rather
+    /// than the old glyph vanishing before the new one appears.
+    private enum CenterGlyph { case icon, waveform, playButton }
+    private var centerGlyph: CenterGlyph {
+        if isPlaying && player.isPanelVisible && !isHovered { return .waveform }
+        if isHovered { return .playButton }
+        return .icon
+    }
+
     var body: some View {
         ZStack {
             Rectangle()
@@ -77,18 +87,30 @@ private struct MixtapeTile: View {
                         .controlSize(.small)
                         .colorScheme(.dark)
                 }
-            } else if isPlaying && player.isPanelVisible && !isHovered {
-                WaveformView()
-                    .frame(width: 22, height: 18)
-                    .foregroundStyle(.white)
-            } else if isHovered {
-                Image(systemName: isPlaying ? "stop.fill" : "play.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-            } else if let iconURL = mixtape.iconWhiteURL {
-                ArtworkImage(url: iconURL, dimension: edge * 0.55)
-                    .frame(width: edge * 0.55, height: edge * 0.55)
-                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+            } else {
+                // The three centre glyphs are all mounted at once and shown/hidden via
+                // opacity so switching between them crossfades (driven by the `.animation`
+                // modifiers below) instead of one popping out before the next fades in.
+                ZStack {
+                    if let iconURL = mixtape.iconWhiteURL {
+                        ArtworkImage(url: iconURL, dimension: edge * 0.55)
+                            .frame(width: edge * 0.55, height: edge * 0.55)
+                            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                            .opacity(centerGlyph == .icon ? 1 : 0)
+                    }
+
+                    if isPlaying && player.isPanelVisible {
+                        WaveformView()
+                            .frame(width: 22, height: 18)
+                            .foregroundStyle(.white)
+                            .opacity(centerGlyph == .waveform ? 1 : 0)
+                    }
+
+                    Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .opacity(centerGlyph == .playButton ? 1 : 0)
+                }
             }
         }
         .frame(width: edge, height: edge)

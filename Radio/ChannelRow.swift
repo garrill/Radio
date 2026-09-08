@@ -33,7 +33,7 @@ struct ChannelRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 0) {
                         channelBadge
-                        Spacer()
+                        Spacer(minLength: 0)
                         if showTracklisting && artworkSize != .large { tracklistButton }
                     }
 
