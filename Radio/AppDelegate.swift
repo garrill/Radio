@@ -9,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Shared model objects — owned here, passed into SwiftUI via environmentObject
     let player = RadioPlayer()
     let ntsService = NTSService()
+    let mixtapeNowPlayingService = MixtapeNowPlayingService()
 
     private var statusItem: NSStatusItem!
     private var panel: NSPanel!
@@ -27,6 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         observePlayingChannel()
         observeMixtapeConfig()
+        observeMixtapeNowPlaying()
         DiagnosticsMonitor.shared.start()
         ntsService.startMonitor()
         ntsService.startPolling()
@@ -88,6 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ContentView()
                 .environmentObject(player)
                 .environmentObject(ntsService)
+                .environmentObject(mixtapeNowPlayingService)
         )
         hostingController = NSHostingController(rootView: content)
         hostingController.sizingOptions = []
@@ -260,6 +263,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
            !enabled.contains(where: { $0.alias == playing.alias }) {
             player.fadeOutAndStop()
         }
+    }
+
+    // MARK: - Mixtape now-playing
+
+    /// Starts/stops `mixtapeNowPlayingService`'s Firestore poll as playback moves in
+    /// and out of `.mixtape`, and feeds resolved titles back into `player` (Control
+    /// Center / lock screen / media-key HUD, plus the mixtape tile's tooltip).
+    private func observeMixtapeNowPlaying() {
+        player.$playing
+            .receive(on: RunLoop.main)
+            .sink { [weak self] item in
+                guard let self else { return }
+                if case .mixtape(let mixtape)? = item {
+                    self.mixtapeNowPlayingService.start(alias: mixtape.alias)
+                } else {
+                    self.mixtapeNowPlayingService.stop()
+                }
+            }
+            .store(in: &cancellables)
+
+        mixtapeNowPlayingService.$current
+            .receive(on: RunLoop.main)
+            .sink { [weak self] nowPlaying in
+                guard let self, case .mixtape(let mixtape)? = self.player.playing else { return }
+                self.player.setMixtapeNowPlaying(nowPlaying, for: mixtape)
+            }
+            .store(in: &cancellables)
     }
 
     /// Shows a fallback glyph immediately, then swaps in the mixtape's own icon

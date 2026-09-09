@@ -93,6 +93,11 @@ class RadioPlayer: ObservableObject {
     /// two live channels and then these. Kept current by `AppDelegate`.
     var mixtapeStations: [Mixtape] = []
 
+    /// The Firestore-sourced show currently airing on the playing mixtape — `nil` for
+    /// live channels, and reset on every `play()` so a stale title from the previous
+    /// mixtape never lingers. Kept current by `AppDelegate` from `MixtapeNowPlayingService`.
+    @Published var currentMixtapeNowPlaying: MixtapeNowPlaying?
+
     private var player: AVPlayer?
     private var timeControlObserver: NSKeyValueObservation?
     private var itemStatusObserver: NSKeyValueObservation?
@@ -168,6 +173,7 @@ class RadioPlayer: ObservableObject {
         player = nil
         playing = nil
         isBuffering = false
+        currentMixtapeNowPlaying = nil
         artworkTask?.cancel()
         artworkTask = nil
         #if os(macOS)
@@ -373,6 +379,19 @@ class RadioPlayer: ObservableObject {
             info[MPMediaItemPropertyArtwork] = artwork
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         }
+    }
+
+    /// Called by `AppDelegate` as `MixtapeNowPlayingService` resolves the show currently
+    /// airing on `mixtape`. Patches the already-published `MPNowPlayingInfo` in place —
+    /// swapping the generic mixtape name for the real show title, mixtape name moving to
+    /// the artist line — rather than restarting playback.
+    func setMixtapeNowPlaying(_ nowPlaying: MixtapeNowPlaying?, for mixtape: Mixtape) {
+        guard playing == .mixtape(mixtape) else { return }
+        currentMixtapeNowPlaying = nowPlaying
+        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
+        info[MPMediaItemPropertyTitle] = nowPlaying?.title ?? mixtape.title
+        info[MPMediaItemPropertyArtist] = mixtape.title
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
     #endif
 }
