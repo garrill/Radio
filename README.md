@@ -6,16 +6,16 @@
 
 <p align="center">A macOS menu-bar app for streaming NTS Radio.</p>
 
-Radio puts [NTS Radio](https://www.nts.live) channels 1 and 2 in your menu bar, with live now-playing/up-next info, a floating tracklist window, and Now Playing / media-key integration.
+Radio puts [NTS Radio](https://www.nts.live) in your menu bar. With channels 1 & 2 showing live information, and quick access to your favourite Infinite Mixtapes streams. The app integrates with native MacOS features, like media-key integration and now-playing in Control Centre.
 
-The app has no Dock icon and no main window (`LSUIElement`). It lives entirely in the menu bar: click the status icon to drop down a floating panel showing both channels.
+The app has no Dock icon and no main window. It lives entirely in the menu bar: click the status icon to drop down a floating panel.
 
-> **Unofficial.** Radio is an independent project and is not affiliated with, endorsed by, or associated with NTS Radio. All audio streams, schedule data, and the NTS name and logo belong to NTS. It streams the same public live feeds as [nts.live](https://www.nts.live).
+> **Unofficial.** Radio is an independent project and is not affiliated with, endorsed by, or associated with NTS Radio. All audio streams, schedule data, and the NTS name and logo belong to NTS.
 
-<p align="center">
-  <img src="docs/screenshot-light.png" alt="Leaf screenshot" width="333px">
-  <img src="docs/screenshot-dark.png" alt="Leaf screenshot" width="333px">
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img src="docs/screenshot-light.png" alt="Radio screenshot">
+</picture>
 
 ## Installation
 
