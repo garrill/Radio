@@ -75,13 +75,11 @@ struct VolumeMenuRow: View {
             Image(systemName: player.volumeSymbol)
                 .font(.system(size: 11))
                 .frame(width: 14)
-                .id(player.volumeSymbol)
-                .transition(.opacity)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.15)) { player.toggleMute() }
+                    player.toggleMute()
                 }
-                .animation(.easeInOut(duration: 0.15), value: player.volumeSymbol)
+                .transaction { $0.animation = nil }
 
             ZStack(alignment: .leading) {
                 Text(label)
