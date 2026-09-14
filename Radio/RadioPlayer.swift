@@ -89,6 +89,50 @@ class RadioPlayer: ObservableObject {
     /// so the panel can show a "playback stopped" state; cleared when playback next starts.
     @Published var streamFailed = false
 
+    /// App-level output volume (0…1), applied to whichever `AVPlayer` is live and persisted
+    /// across launches. Independent of system volume. Every `play()` applies it to the new
+    /// player; `fadeOutAndStop` ramps the underlying `AVPlayer.volume` relative to this and
+    /// never writes back here, so the stored level survives a fade-out.
+    private static let volumeKey = "playerVolume"
+    @Published var volume: Float = 1.0 {
+        didSet {
+            player?.volume = volume
+            UserDefaults.standard.set(Double(volume), forKey: Self.volumeKey)
+        }
+    }
+
+    /// Level to restore when the menu volume icon is clicked to un-mute. Not persisted.
+    private var volumeBeforeMute: Float = 1.0
+
+    init() {
+        if UserDefaults.standard.object(forKey: Self.volumeKey) != nil {
+            volume = Float(UserDefaults.standard.double(forKey: Self.volumeKey))
+        }
+    }
+
+    /// The `speaker.wave.*` glyph for a level, matching the macOS Music app's steps.
+    nonisolated static func volumeSymbol(for volume: Float) -> String {
+        guard volume > 0 else { return "speaker.slash.fill" }
+        switch volume {
+        case ...0.25: return "speaker.wave.1.fill"
+        case ...0.5:  return "speaker.wave.2.fill"
+        default:      return "speaker.wave.3.fill"
+        }
+    }
+
+    var volumeSymbol: String { Self.volumeSymbol(for: volume) }
+
+    /// Menu volume-icon click: mute when there's sound, otherwise restore the pre-mute
+    /// level — falling back to full if that was also zero (0% → 100%).
+    func toggleMute() {
+        if volume > 0 {
+            volumeBeforeMute = volume
+            volume = 0
+        } else {
+            volume = volumeBeforeMute > 0 ? volumeBeforeMute : 1
+        }
+    }
+
     /// Enabled mixtapes, in panel order. Media-key next/previous cycle through the
     /// two live channels and then these. Kept current by `AppDelegate`.
     var mixtapeStations: [Mixtape] = []
@@ -205,6 +249,7 @@ class RadioPlayer: ObservableObject {
 
         let avItem = AVPlayerItem(url: item.streamURL)
         let newPlayer = AVPlayer(playerItem: avItem)
+        newPlayer.volume = volume
         player = newPlayer
         playing = item
         isBuffering = true

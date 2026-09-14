@@ -9,6 +9,8 @@ struct ChannelRow: View {
 
     @EnvironmentObject var player: RadioPlayer
     @AppStorage("showTracklisting") private var showTracklisting = true
+    @AppStorage("showProgress") private var showProgress = true
+    @AppStorage("showUpNext") private var showUpNext = true
     @AppStorage("artworkSize") private var artworkSize = ArtworkSize.medium
 
     private var artworkDimension: CGFloat { artworkSize.dimension }
@@ -60,16 +62,20 @@ struct ChannelRow: View {
             .padding(.top, 12)
             .padding(.bottom, 10)
 
-            if let broadcast = currentBroadcast {
-                progressBar(for: broadcast)
-            } else {
-                Color.clear.frame(height: 27)
+            if showProgress {
+                if let broadcast = currentBroadcast {
+                    progressBar(for: broadcast)
+                } else {
+                    Color.clear.frame(height: 27)
+                }
             }
 
-            if nextBroadcast != nil {
-                bottomRow
-            } else {
-                Color.clear.frame(height: 24)
+            if showUpNext {
+                if nextBroadcast != nil {
+                    bottomRow
+                } else {
+                    Color.clear.frame(height: 24)
+                }
             }
         }
         .onHover { isHovered = $0 }

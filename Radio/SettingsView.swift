@@ -45,7 +45,12 @@ struct SettingsView: View {
 
 struct GeneralSettingsView: View {
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
+    @AppStorage("scheduleLinkType") private var scheduleLinkType = "default"
+    @AppStorage("showVolumeControl") private var showVolumeControl = false
+    @AppStorage("showWebsiteLink") private var showWebsiteLink = true
     @AppStorage("showTracklisting") private var showTracklisting = true
+    @AppStorage("showProgress") private var showProgress = true
+    @AppStorage("showUpNext") private var showUpNext = true
     @AppStorage("artworkSize") private var artworkSize = ArtworkSize.medium
 
     // System owns login-item state — mirror it, don't persist our own copy.
@@ -63,22 +68,33 @@ struct GeneralSettingsView: View {
             }
 
             Section("User interface") {
-                Picker("Chatroom link", selection: $chatroomLinkType) {
-                    Text("Open in browser").tag("web")
-                    Text("Open in Discord").tag("app")
-                    Text("Hide link").tag("hidden")
-                }
                 Picker("Artwork size", selection: $artworkSize) {
                     ForEach(ArtworkSize.allCases, id: \.self) { size in
                         Text(size.label).tag(size)
                     }
                 }
                 Toggle("Show tracklist link", isOn: $showTracklisting)
+                Toggle("Show progress", isOn: $showProgress)
+                Toggle("Show up next", isOn: $showUpNext)
+            }
+
+            Section("Bottom menu") {
+                Toggle("Volume control", isOn: $showVolumeControl)
+                Toggle("Website link", isOn: $showWebsiteLink)
+                Picker("Chatroom link", selection: $chatroomLinkType) {
+                    Text("Open in browser").tag("web")
+                    Text("Open in Discord").tag("app")
+                    Text("Hide link").tag("hidden")
+                }
+                Picker("Schedule link", selection: $scheduleLinkType) {
+                    Text("Open default").tag("default")
+                    Text("Open personal").tag("personal")
+                    Text("Hide link").tag("hidden")
+                }
             }
         }
         .formStyle(.grouped)
         .frame(width: 380)
-        .padding(.bottom, 8)
         .onAppear { openAtLogin = LoginItem.isEnabled }
     }
 }

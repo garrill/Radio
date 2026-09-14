@@ -49,6 +49,66 @@ struct MenuRowButton: View {
     }
 }
 
+// MARK: - Volume Menu Row
+
+/// Top row of the bottom menu when "Show volume control" is enabled. Matches
+/// `MenuRowButton`'s metrics. At rest it shows a speaker glyph + a label that
+/// carries the level when it isn't 100% ("Volume (55%)", "Volume (muted)"); on
+/// hover the label cross-fades to an inline `Slider`. The glyph and label stay
+/// put (fixed row height, stable view tree) so nothing jumps on rollover — the
+/// glyph only animates when it actually changes, never on hover. Tapping the
+/// glyph toggles mute, like Music.app.
+struct VolumeMenuRow: View {
+    @EnvironmentObject var player: RadioPlayer
+    @State private var isHovered = false
+
+    /// "Volume" at full, "Volume (muted)" at zero, "Volume (N%)" (nearest 5%) between.
+    private var label: String {
+        let pct = Int((player.volume * 20).rounded()) * 5
+        if pct >= 100 { return "Volume" }
+        if pct <= 0 { return "Volume (muted)" }
+        return "Volume (\(pct)%)"
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: player.volumeSymbol)
+                .font(.system(size: 11))
+                .frame(width: 14)
+                .id(player.volumeSymbol)
+                .transition(.opacity)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.15)) { player.toggleMute() }
+                }
+                .animation(.easeInOut(duration: 0.15), value: player.volumeSymbol)
+
+            ZStack(alignment: .leading) {
+                Text(label)
+                    .font(.system(size: 12))
+                    .opacity(isHovered ? 0 : 1)
+                Slider(value: $player.volume, in: 0...1)
+                    .controlSize(.mini)
+                    .opacity(isHovered ? 1 : 0)
+                    .allowsHitTesting(isHovered)
+            }
+        }
+        .frame(height: 16)
+        .foregroundStyle(isHovered ? Color.white : Color.primary)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isHovered ? Color.accentColor : Color.clear)
+        )
+        .padding(.horizontal, 5)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
+        }
+    }
+}
+
 // MARK: - Settings Menu Button
 
 #if os(macOS)
