@@ -13,8 +13,8 @@ The app has no Dock icon and no main window. It lives entirely in the menu bar: 
 > **Unofficial.** Radio is an independent project and is not affiliated with, endorsed by, or associated with NTS Radio. All audio streams, schedule data, and the NTS name and logo belong to NTS.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
-  <img src="docs/screenshot-light.png" alt="Radio screenshot">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.jpg">
+  <img src="docs/screenshot-light.jpg" alt="Radio screenshot">
 </picture>
 
 ## Installation
