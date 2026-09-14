@@ -8,9 +8,19 @@
 
 /* Begin PBXBuildFile section */
 		5AA5AA5AA5AA5AA5AA5A0001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5AA5AA5AA5AA5AA5AA5A0002 /* Sparkle */; };
+		FB25E7A73051A0DC00E43DCF /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB25E7A63051A0DC00E43DCF /* WidgetKit.framework */; };
+		FB25E7A93051A0DC00E43DCF /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB25E7A83051A0DC00E43DCF /* SwiftUI.framework */; };
+		FB25E7B63051A0DD00E43DCF /* RadioWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FB25E7A43051A0DC00E43DCF /* RadioWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		FB25E7B43051A0DD00E43DCF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FBAA9CA52F588BC600963CC0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FB25E7A33051A0DC00E43DCF;
+			remoteInfo = RadioWidgetExtension;
+		};
 		FBAA9CBB2F588BC800963CC0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FBAA9CA52F588BC600963CC0 /* Project object */;
@@ -27,13 +37,44 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		FB25E7B73051A0DD00E43DCF /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				FB25E7B63051A0DD00E43DCF /* RadioWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		FB25E7A43051A0DC00E43DCF /* RadioWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RadioWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB25E7A63051A0DC00E43DCF /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		FB25E7A83051A0DC00E43DCF /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		FBAA9CAD2F588BC600963CC0 /* Radio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Radio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FBAA9CBA2F588BC800963CC0 /* RadioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RadioTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FBAA9CC42F588BC800963CC0 /* RadioUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RadioUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FB25E7BB3051A0DD00E43DCF /* Exceptions for "RadioWidget" folder in "RadioWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FB25E7A33051A0DC00E43DCF /* RadioWidgetExtension */;
+		};
+		FB25E8253051A39900E43DCF /* Exceptions for "Radio" folder in "RadioWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				NTSModels.swift,
+			);
+			target = FB25E7A33051A0DC00E43DCF /* RadioWidgetExtension */;
+		};
 		FBAA9CE02F588BC800963CC0 /* Exceptions for "Radio" folder in "Radio" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -44,10 +85,19 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		FB25E7AA3051A0DC00E43DCF /* RadioWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FB25E7BB3051A0DD00E43DCF /* Exceptions for "RadioWidget" folder in "RadioWidgetExtension" target */,
+			);
+			path = RadioWidget;
+			sourceTree = "<group>";
+		};
 		FBAA9CAF2F588BC600963CC0 /* Radio */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				FBAA9CE02F588BC800963CC0 /* Exceptions for "Radio" folder in "Radio" target */,
+				FB25E8253051A39900E43DCF /* Exceptions for "Radio" folder in "RadioWidgetExtension" target */,
 			);
 			path = Radio;
 			sourceTree = "<group>";
@@ -65,6 +115,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		FB25E7A13051A0DC00E43DCF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FB25E7A93051A0DC00E43DCF /* SwiftUI.framework in Frameworks */,
+				FB25E7A73051A0DC00E43DCF /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FBAA9CAA2F588BC600963CC0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -90,12 +149,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		FB25E7A53051A0DC00E43DCF /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FB25E7A63051A0DC00E43DCF /* WidgetKit.framework */,
+				FB25E7A83051A0DC00E43DCF /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		FBAA9CA42F588BC600963CC0 = {
 			isa = PBXGroup;
 			children = (
 				FBAA9CAF2F588BC600963CC0 /* Radio */,
 				FBAA9CBD2F588BC800963CC0 /* RadioTests */,
 				FBAA9CC72F588BC800963CC0 /* RadioUITests */,
+				FB25E7AA3051A0DC00E43DCF /* RadioWidget */,
+				FB25E7A53051A0DC00E43DCF /* Frameworks */,
 				FBAA9CAE2F588BC600963CC0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -106,6 +176,7 @@
 				FBAA9CAD2F588BC600963CC0 /* Radio.app */,
 				FBAA9CBA2F588BC800963CC0 /* RadioTests.xctest */,
 				FBAA9CC42F588BC800963CC0 /* RadioUITests.xctest */,
+				FB25E7A43051A0DC00E43DCF /* RadioWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -113,6 +184,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		FB25E7A33051A0DC00E43DCF /* RadioWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FB25E7BA3051A0DD00E43DCF /* Build configuration list for PBXNativeTarget "RadioWidgetExtension" */;
+			buildPhases = (
+				FB25E7A03051A0DC00E43DCF /* Sources */,
+				FB25E7A13051A0DC00E43DCF /* Frameworks */,
+				FB25E7A23051A0DC00E43DCF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FB25E7AA3051A0DC00E43DCF /* RadioWidget */,
+			);
+			name = RadioWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = RadioWidgetExtension;
+			productReference = FB25E7A43051A0DC00E43DCF /* RadioWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		FBAA9CAC2F588BC600963CC0 /* Radio */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FBAA9CCE2F588BC800963CC0 /* Build configuration list for PBXNativeTarget "Radio" */;
@@ -120,10 +213,12 @@
 				FBAA9CA92F588BC600963CC0 /* Sources */,
 				FBAA9CAA2F588BC600963CC0 /* Frameworks */,
 				FBAA9CAB2F588BC600963CC0 /* Resources */,
+				FB25E7B73051A0DD00E43DCF /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				FB25E7B53051A0DD00E43DCF /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				FBAA9CAF2F588BC600963CC0 /* Radio */,
@@ -189,9 +284,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					FB25E7A33051A0DC00E43DCF = {
+						CreatedOnToolsVersion = 26.6;
+					};
 					FBAA9CAC2F588BC600963CC0 = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -225,11 +323,19 @@
 				FBAA9CAC2F588BC600963CC0 /* Radio */,
 				FBAA9CB92F588BC800963CC0 /* RadioTests */,
 				FBAA9CC32F588BC800963CC0 /* RadioUITests */,
+				FB25E7A33051A0DC00E43DCF /* RadioWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		FB25E7A23051A0DC00E43DCF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FBAA9CAB2F588BC600963CC0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -254,6 +360,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		FB25E7A03051A0DC00E43DCF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FBAA9CA92F588BC600963CC0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -278,6 +391,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		FB25E7B53051A0DD00E43DCF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FB25E7A33051A0DC00E43DCF /* RadioWidgetExtension */;
+			targetProxy = FB25E7B43051A0DD00E43DCF /* PBXContainerItemProxy */;
+		};
 		FBAA9CBC2F588BC800963CC0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FBAA9CAC2F588BC600963CC0 /* Radio */;
@@ -291,6 +409,71 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		FB25E7B83051A0DD00E43DCF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = RadioWidget/RadioWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VL4Z3W8N24;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RadioWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RadioWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.garrill.Radio.RadioWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FB25E7B93051A0DD00E43DCF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = RadioWidget/RadioWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VL4Z3W8N24;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RadioWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RadioWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.garrill.Radio.RadioWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		FBAA9CCC2F588BC800963CC0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -413,7 +596,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Radio;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = VL4Z3W8N24;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -435,7 +618,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.garrill.Radio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
@@ -458,7 +641,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Radio;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = VL4Z3W8N24;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -480,7 +663,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.garrill.Radio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
@@ -602,6 +785,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		FB25E7BA3051A0DD00E43DCF /* Build configuration list for PBXNativeTarget "RadioWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FB25E7B83051A0DD00E43DCF /* Debug */,
+				FB25E7B93051A0DD00E43DCF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FBAA9CA82F588BC600963CC0 /* Build configuration list for PBXProject "Radio" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

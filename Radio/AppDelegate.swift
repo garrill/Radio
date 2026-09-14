@@ -83,6 +83,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// Handles the `radio://` scheme — used by the desktop widget's tap target to bring
+    /// the panel to front instead of just launching/activating the app.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard urls.contains(where: { $0.scheme == "radio" }) else { return }
+        if !panel.isVisible { showPanel() }
+    }
+
     // MARK: - Panel
 
     private func setupPanel() {
@@ -112,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
     }
 
-    private func showPanel() {
+    func showPanel() {
         guard let button = statusItem.button,
               let buttonWindow = button.window else { return }
 

@@ -171,7 +171,6 @@ private struct MixtapeTile: View {
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .onTapGesture { player.toggle(mixtape: mixtape) }
-        .help(mixtape.title)
         .anchorPreference(key: HoveredPlayingTileKey.self, value: .bounds) { anchor in
             (isHovered && isPlaying) ? anchor : nil
         }
