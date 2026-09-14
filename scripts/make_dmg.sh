@@ -95,6 +95,18 @@ if [ -d "$SPARKLE_FW" ]; then
 fi
 # -----------------------------------------------------------------------------------
 
+# --- Widget extension: re-sign, same reasoning as Sparkle above. A plain Release build's
+# embed phase leaves the appex signed with its Debug entitlements (including
+# get-task-allow, which fails notarization), so re-sign with the checked-in release
+# entitlements — a bare --force resign would otherwise drop app-sandbox/network.client too.
+WIDGET_EXT="$APP_PATH/Contents/PlugIns/RadioWidgetExtension.appex"
+WIDGET_ENTITLEMENTS="RadioWidget/RadioWidget.entitlements"
+if [ -d "$WIDGET_EXT" ]; then
+	codesign --force --options runtime --timestamp \
+		--entitlements "$WIDGET_ENTITLEMENTS" --sign "$IDENTITY" "$WIDGET_EXT"
+fi
+# -----------------------------------------------------------------------------------
+
 # Re-sign the outer app last, with hardened runtime, a secure timestamp, and NO
 # entitlements — the sandbox/entitlements file was removed, and this also drops the
 # com.apple.security.get-task-allow that a plain build can bake in (fails notarization).

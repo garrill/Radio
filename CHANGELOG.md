@@ -4,6 +4,17 @@ All notable changes to Radio are recorded here. The section under `## [X.Y.Z]` f
 release is what `scripts/sign_and_update_appcast.sh` embeds as that build's Sparkle
 release notes, so keep entries user-facing.
 
+## [0.5.0]
+
+### Widgets & Customisation
+
+- Now playing / up next widgets for MacOS desktop
+- Added optional volume control to bottom menu
+- Added optional schedule link to bottom menu 
+- Settings to enable / disable bottom menu items
+- Settings to hide progress bar and up next
+- Tooltip on current Infinite Mixtape displaying show name
+
 ## [0.4.0]
 
 ### Infinite Mixtapes
