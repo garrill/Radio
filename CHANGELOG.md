@@ -4,6 +4,16 @@ All notable changes to Radio are recorded here. The section under `## [X.Y.Z]` f
 release is what `scripts/sign_and_update_appcast.sh` embeds as that build's Sparkle
 release notes, so keep entries user-facing.
 
+## [0.5.1]
+
+### MacOS 27 fixes & UX tweaks
+
+- Menu bar icon correctly toggles opening and closing app
+- 'Up next' item links to channel timetable
+- Volume control section enabled by default 
+- Mixtape parent toggle pinned to top of window
+- Fixed visual glitch when mixtape tooltips active
+
 ## [0.5.0]
 
 ### Widgets & Customisation
