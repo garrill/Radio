@@ -27,8 +27,13 @@ enum LogExport {
     }
 
     /// Writes a plain-text dump to `url`, with a header carrying app/OS version.
+    ///
+    /// Widget-process log lines aren't visible to `OSLogStore(scope: .currentProcessIdentifier)`
+    /// (that scope only covers entries this process emitted), so they're merged in separately
+    /// from `SharedLog`'s App Group file — see that type's doc comment.
     static func write(to url: URL, maxAge: TimeInterval = 24 * 3600) throws {
         let lines = (try? fetch(since: Date().addingTimeInterval(-maxAge))) ?? []
+        let widgetLines = SharedLog.readLines()
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
@@ -41,6 +46,11 @@ enum LogExport {
         """
         text += lines.map(\.formatted).joined(separator: "\n")
         text += "\n"
+        if !widgetLines.isEmpty {
+            text += "\n--- Widget extension process ---\n"
+            text += widgetLines.joined(separator: "\n")
+            text += "\n"
+        }
         try text.write(to: url, atomically: true, encoding: .utf8)
     }
 

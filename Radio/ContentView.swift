@@ -12,7 +12,7 @@ struct ContentView: View {
     @State private var pulseOpacity: Double = 1.0
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
     @AppStorage("scheduleLinkType") private var scheduleLinkType = "default"
-    @AppStorage("showVolumeControl") private var showVolumeControl = false
+    @AppStorage("showVolumeControl") private var showVolumeControl = true
     @AppStorage("showWebsiteLink") private var showWebsiteLink = true
     @AppStorage("showInfiniteMixtapes") private var showInfiniteMixtapes = false
     @AppStorage("enabledMixtapes") private var enabledMixtapes = ""

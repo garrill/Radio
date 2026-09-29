@@ -15,13 +15,16 @@ struct ChannelRow: View {
 
     private var artworkDimension: CGFloat { artworkSize.dimension }
 
-    @State private var isHovered = false
+    @State private var isRowHovered = false
     @State private var isTracklistHovered = false
     @State private var isBottomHovered = false
     // Stable anchor for the progress TimelineView. `from: .now` re-evaluated every
     // render churns SwiftUI's UpdateFilter (~25% idle CPU with the panel open).
     @State private var timelineAnchor = Date()
 
+    // The "Up next" area opens the schedule rather than toggling playback, so it
+    // shouldn't surface the play/stop affordance on the artwork.
+    private var isHovered: Bool { isRowHovered && !isBottomHovered }
     private var isPlaying: Bool { player.playingChannel == channel }
     private var isBuffering: Bool { player.isBuffering && isPlaying }
     private var currentBroadcast: Broadcast? { data?.effectiveNow }
@@ -78,7 +81,7 @@ struct ChannelRow: View {
                 }
             }
         }
-        .onHover { isHovered = $0 }
+        .onHover { isRowHovered = $0 }
         .contentShape(Rectangle())
         .onTapGesture {
             player.toggle(channel: channel, broadcast: currentBroadcast)
@@ -254,5 +257,14 @@ struct ChannelRow: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 10)
         .onHover { isBottomHovered = $0 }
+        .contentShape(Rectangle())
+        // Takes precedence over the row's play/stop tap gesture.
+        .onTapGesture { openSchedule() }
+    }
+
+    private func openSchedule() {
+        #if os(macOS)
+        NSWorkspace.shared.open(URL(string: "https://www.nts.live/schedule/\(channel.rawValue)")!)
+        #endif
     }
 }

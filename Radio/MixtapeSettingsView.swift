@@ -9,35 +9,48 @@ struct MixtapeSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Show infinite mixtapes", isOn: $showInfiniteMixtapes)
-            }
-
-            Section("Mixtapes") {
-                if ntsService.mixtapes.isEmpty {
-                    Text("Loading mixtapes…")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(ntsService.mixtapes) { mixtape in
-                        Toggle(isOn: binding(for: mixtape)) {
-                            HStack(spacing: 10) {
-                                artwork(for: mixtape)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(mixtape.title)
-                                        .font(.system(size: 12, weight: .medium))
-                                    Text(mixtape.subtitle)
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(2)
+                Group {
+                    if ntsService.mixtapes.isEmpty {
+                        Text("Loading mixtapes…")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(ntsService.mixtapes) { mixtape in
+                            Toggle(isOn: binding(for: mixtape)) {
+                                HStack(spacing: 10) {
+                                    artwork(for: mixtape)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(mixtape.title)
+                                            .font(.system(size: 12, weight: .medium))
+                                        Text(mixtape.subtitle)
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
                                 }
                             }
                         }
-                        .disabled(!showInfiniteMixtapes)
                     }
                 }
+                .disabled(!showInfiniteMixtapes)
+                .opacity(showInfiniteMixtapes ? 1 : 0.4)
+            } header: {
+                Text("Mixtapes")
+                    .opacity(showInfiniteMixtapes ? 1 : 0.4)
             }
         }
         .formStyle(.grouped)
+        // Pinned above the scrolling list so the master toggle stays reachable.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                Toggle("Show infinite mixtapes", isOn: $showInfiniteMixtapes)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                Divider()
+            }
+            .background(.bar)
+        }
         .frame(width: 380)
         .onAppear { ntsService.fetchMixtapes() }
     }

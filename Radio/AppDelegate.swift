@@ -160,7 +160,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { [weak self] _ in
-            self?.closePanel()
+            guard let self else { return }
+            // Clicks on the status item are handled by `handleClick` (on mouse-up) — closing
+            // here on mouse-down would make that toggle see a hidden panel and reopen it.
+            if let buttonFrame = self.statusItem.button?.window?.frame,
+               buttonFrame.contains(NSEvent.mouseLocation) { return }
+            self.closePanel()
         }
     }
 
@@ -192,7 +197,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private static func bottomMenuRowCount() -> Int {
         let d = UserDefaults.standard
         var rows = 2 // Settings + Quit — always present
-        if d.bool(forKey: "showVolumeControl") { rows += 1 }
+        if d.object(forKey: "showVolumeControl") as? Bool ?? true { rows += 1 }
         if d.object(forKey: "showWebsiteLink") as? Bool ?? true { rows += 1 }
         if (d.string(forKey: "chatroomLinkType") ?? "web") != "hidden" { rows += 1 }
         if (d.string(forKey: "scheduleLinkType") ?? "default") != "hidden" { rows += 1 }

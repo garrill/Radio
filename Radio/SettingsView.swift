@@ -46,7 +46,7 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("chatroomLinkType") private var chatroomLinkType = "web"
     @AppStorage("scheduleLinkType") private var scheduleLinkType = "default"
-    @AppStorage("showVolumeControl") private var showVolumeControl = false
+    @AppStorage("showVolumeControl") private var showVolumeControl = true
     @AppStorage("showWebsiteLink") private var showWebsiteLink = true
     @AppStorage("showTracklisting") private var showTracklisting = true
     @AppStorage("showProgress") private var showProgress = true
