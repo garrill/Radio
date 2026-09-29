@@ -67,14 +67,15 @@ struct MixtapeGridView: View {
             GeometryReader { proxy in
                 if let anchor, let title = player.currentMixtapeNowPlaying?.title {
                     let rect = proxy[anchor]
-                    // Clamp using `TooltipBubble.maxWidth` (the capsule's own upper bound),
-                    // not the measured `capsuleWidth` — that keeps the capsule fully inside
-                    // the panel even before a real measurement has landed.
-                    let halfMaxWidth = TooltipBubble.maxWidth / 2
-                    let capsuleX = min(max(rect.midX, halfMaxWidth), proxy.size.width - halfMaxWidth)
-                    // The arrow, though, is clamped against the capsule's actual width — if
-                    // that stayed clamped to the worst case, a short capsule's arrow could
-                    // slide out past its own (narrower) rounded end.
+                    // Clamp against the measured `capsuleWidth` so a short capsule over an
+                    // edge tile can sit right up against the panel edge (and stay centred
+                    // over the artwork where it fits), rather than being held back by the
+                    // worst-case `maxWidth`. Before the first measurement lands
+                    // `capsuleWidth` is `maxWidth`, so that first frame still clamps safely.
+                    let halfWidth = capsuleWidth / 2 + TooltipBubble.edgeInset
+                    let capsuleX = min(max(rect.midX, halfWidth), proxy.size.width - halfWidth)
+                    // The arrow is clamped against the capsule's width too, so it never
+                    // slides out past the capsule's rounded end.
                     let maxArrowOffset = max(0, capsuleWidth / 2 - TooltipBubble.arrowWidth / 2 - 6)
                     let arrowOffsetX = min(max(rect.midX - capsuleX, -maxArrowOffset), maxArrowOffset)
                     TooltipBubble(text: title, arrowOffsetX: arrowOffsetX)
@@ -182,8 +183,8 @@ private struct MixtapeTile: View {
 
 /// A native-style Dock label floated above a playing mixtape's tile while hovered,
 /// showing the show currently airing on it — a frosted, capsule-shaped pill with a
-/// downward-pointing arrow, matching how macOS labels Dock icons on hover: translucent
-/// system material (adapts light/dark automatically), width hugging short text and
+/// downward-pointing arrow, matching how macOS labels Dock icons on hover: Liquid
+/// Glass (adapts light/dark automatically), width hugging short text and
 /// truncating long text rather than wrapping (so the capsule never distorts).
 private struct TooltipBubble: View {
     let text: String
@@ -200,48 +201,60 @@ private struct TooltipBubble: View {
     static let totalHeight: CGFloat = capsuleHeight + arrowHeight
     static let maxWidth: CGFloat = 200
     static let arrowWidth: CGFloat = 13
+    /// Minimum gap between the capsule and the panel's left/right edge.
+    static let edgeInset: CGFloat = 4
 
     var body: some View {
-        VStack(spacing: 0) {
-            Text(text)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .padding(.horizontal, 12)
-                .frame(height: Self.capsuleHeight)
-                .frame(maxWidth: Self.maxWidth)
-                .background(.thinMaterial, in: Capsule())
-                .overlay(
-                    Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5)
+        Text(text)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 12)
+            .frame(height: Self.capsuleHeight)
+            .frame(maxWidth: Self.maxWidth)
+            .background(
+                GeometryReader { g in
+                    Color.clear.preference(key: CapsuleWidthKey.self, value: g.size.width)
+                }
+            )
+            .padding(.bottom, Self.arrowHeight)
+            // One glass shape (capsule + arrow) rather than separate `.thinMaterial` fills
+            // under a `.compositingGroup()` — a second, non-glass backdrop blur nested in
+            // the panel's own `glassEffect` visibly weakened the panel's blur while shown.
+            .glassEffect(
+                .regular,
+                in: TooltipShape(
+                    capsuleHeight: Self.capsuleHeight,
+                    arrowWidth: Self.arrowWidth,
+                    arrowOffsetX: arrowOffsetX
                 )
-                .background(
-                    GeometryReader { g in
-                        Color.clear.preference(key: CapsuleWidthKey.self, value: g.size.width)
-                    }
-                )
-
-            TooltipArrow()
-                .fill(.thinMaterial)
-                .frame(width: Self.arrowWidth, height: Self.arrowHeight)
-                .offset(x: arrowOffsetX, y: -0.5) // y hides the seam between arrow and capsule
-        }
-        .compositingGroup()
-        .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
-        .fixedSize()
-        .transition(.opacity)
+            )
+            .fixedSize()
+            .transition(.opacity)
     }
 }
 
-/// A small downward-pointing triangle, flush with the bottom of `TooltipBubble`'s
-/// capsule — mirrors the Dock label's pointer down to the icon it's labelling.
-private struct TooltipArrow: Shape {
+/// The tooltip's outline: a capsule filling the top `capsuleHeight` of the rect, with a
+/// downward-pointing arrow below it (offset by `arrowOffsetX` from centre) — mirrors the
+/// Dock label's pointer down to the icon it's labelling.
+private struct TooltipShape: Shape {
+    let capsuleHeight: CGFloat
+    let arrowWidth: CGFloat
+    let arrowOffsetX: CGFloat
+
     func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        path.closeSubpath()
-        return path
+        let capsuleRect = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: capsuleHeight)
+        let capsule = Path(roundedRect: capsuleRect, cornerRadius: capsuleHeight / 2)
+
+        let tipX = rect.midX + arrowOffsetX
+        var arrow = Path()
+        // Starts 0.5pt inside the capsule so the two halves overlap with no seam.
+        arrow.move(to: CGPoint(x: tipX - arrowWidth / 2, y: capsuleRect.maxY - 0.5))
+        arrow.addLine(to: CGPoint(x: tipX + arrowWidth / 2, y: capsuleRect.maxY - 0.5))
+        arrow.addLine(to: CGPoint(x: tipX, y: rect.maxY))
+        arrow.closeSubpath()
+
+        return capsule.union(arrow)
     }
 }
