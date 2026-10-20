@@ -125,7 +125,7 @@ struct ChannelRow: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white)
             } else if isPlaying && player.isPanelVisible {
-                WaveformView()
+                WaveformView(levels: player.levels)
                     .frame(width: 22, height: 18)
                     .foregroundStyle(.white)
             } else if isHovered {

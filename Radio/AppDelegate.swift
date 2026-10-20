@@ -29,6 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         observePlayingChannel()
         observeMixtapeConfig()
         observeMixtapeNowPlaying()
+        observeTopBanner()
         DiagnosticsMonitor.shared.start()
         ntsService.startMonitor()
         ntsService.startPolling()
@@ -120,33 +121,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showPanel() {
-        guard let button = statusItem.button,
-              let buttonWindow = button.window else { return }
-
-        let artworkSize = UserDefaults.standard.string(forKey: "artworkSize").flatMap(ArtworkSize.init) ?? .medium
-        let defaults = UserDefaults.standard
-        let size = AppDelegate.panelSize(
-            for: artworkSize,
-            mixtapeCount: enabledMixtapeCount(),
-            bottomMenuRows: Self.bottomMenuRowCount(),
-            showProgress: defaults.object(forKey: "showProgress") as? Bool ?? true,
-            showUpNext: defaults.object(forKey: "showUpNext") as? Bool ?? true
-        )
-        panel.setContentSize(size)
-
-        let buttonFrame = buttonWindow.frame
-        // On launch the system assigns a temporary placeholder position to status items
-        // before settling them at their real location — bail out and let the asyncAfter retry.
-        guard NSScreen.screens.contains(where: { $0.frame.intersects(buttonFrame) }) else { return }
-
-        var x = buttonFrame.midX - size.width / 2
-        let y = buttonFrame.minY - size.height + 24
-
-        if let screen = buttonWindow.screen ?? NSScreen.main {
-            let visible = screen.visibleFrame
-            x = max(visible.minX + 4, min(x, visible.maxX - size.width - 4))
-        }
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        guard layoutPanel() else { return }
 
         player.isPanelVisible = true
         ntsService.startPolling()
@@ -169,12 +144,49 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Sizes the panel for the current settings/banner state and pins it under the status item.
+    /// Returns `false` if the status item isn't on a screen yet. Safe to call while visible —
+    /// the top edge stays put, so a banner appearing just grows the panel downwards.
+    @discardableResult
+    private func layoutPanel() -> Bool {
+        guard let button = statusItem.button,
+              let buttonWindow = button.window else { return false }
+
+        let artworkSize = UserDefaults.standard.string(forKey: "artworkSize").flatMap(ArtworkSize.init) ?? .medium
+        let defaults = UserDefaults.standard
+        let size = AppDelegate.panelSize(
+            for: artworkSize,
+            mixtapeCount: enabledMixtapeCount(),
+            bottomMenuRows: Self.bottomMenuRowCount(),
+            showProgress: defaults.object(forKey: "showProgress") as? Bool ?? true,
+            showUpNext: defaults.object(forKey: "showUpNext") as? Bool ?? true,
+            hasTopBanner: ContentView.hasTopBanner(player: player, ntsService: ntsService)
+        )
+        panel.setContentSize(size)
+
+        let buttonFrame = buttonWindow.frame
+        // On launch the system assigns a temporary placeholder position to status items
+        // before settling them at their real location — bail out and let the asyncAfter retry.
+        guard NSScreen.screens.contains(where: { $0.frame.intersects(buttonFrame) }) else { return false }
+
+        var x = buttonFrame.midX - size.width / 2
+        let y = buttonFrame.minY - size.height + 24
+
+        if let screen = buttonWindow.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            x = max(visible.minX + 4, min(x, visible.maxX - size.width - 4))
+        }
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        return true
+    }
+
     private static func panelSize(
         for artworkSize: ArtworkSize,
         mixtapeCount: Int,
         bottomMenuRows: Int,
         showProgress: Bool,
-        showUpNext: Bool
+        showUpNext: Bool,
+        hasTopBanner: Bool
     ) -> NSSize {
         // Row: top(12) + artwork + bottom(10) + progressBar(27) + nextUp(24) = artwork + 73
         // 2 rows + row-divider(1) + list-top-pad(2) + bottom-divider(1) + buttons(76) + shadow-padding(36)
@@ -188,6 +200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             + CGFloat(bottomMenuRows - 4) * 24
             - (showProgress ? 0 : 27 * 2)
             - (showUpNext ? 0 : 24 * 2)
+            + (hasTopBanner ? ContentView.topBannerHeight : 0)
         return NSSize(width: 328, height: base + MixtapeGrid.sectionHeight(count: mixtapeCount))
     }
 
@@ -224,6 +237,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ntsService.stopPolling()
         panel.orderOut(nil)
         Log.lifecycle.debug("Panel hidden")
+    }
+
+    /// Re-lays out the open panel when the offline / playback-stopped banner
+    /// appears or clears, so it never pushes the bottom menu out of the window.
+    private func observeTopBanner() {
+        Publishers.CombineLatest(ntsService.$isOffline, player.$streamFailed)
+            .map { $0 || $1 }
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.panel.isVisible else { return }
+                self.layoutPanel()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Status Item

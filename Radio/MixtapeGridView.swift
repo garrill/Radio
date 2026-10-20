@@ -154,7 +154,7 @@ private struct MixtapeTile: View {
                     }
 
                     if isPlaying && player.isPanelVisible {
-                        WaveformView()
+                        WaveformView(levels: player.levels)
                             .frame(width: 22, height: 18)
                             .foregroundStyle(.white)
                             .opacity(centerGlyph == .waveform ? 1 : 0)

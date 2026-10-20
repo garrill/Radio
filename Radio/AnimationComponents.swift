@@ -107,10 +107,12 @@ private struct SwiftUILiveDot: View {
 /// track panel visibility so the bars only animate while the panel is on screen.
 struct WaveformView: View {
     var isActive: Bool = true
+    /// Live spectrum to draw. `nil` falls back to the decorative keyframe loop (previews, iOS).
+    var levels: AudioLevels? = nil
 
     var body: some View {
         #if os(macOS)
-        CoreAnimationWaveform(isActive: isActive)
+        CoreAnimationWaveform(isActive: isActive, levels: levels)
             .frame(width: WaveformMetrics.width, height: WaveformMetrics.maxBarHeight)
         #else
         SwiftUIWaveform(isActive: isActive)
@@ -123,6 +125,8 @@ private enum WaveformMetrics {
     static let spacing: CGFloat = 2
     static let barCount = 5
     static let maxBarHeight: CGFloat = 14
+    /// Silent bars rest as dots rather than vanishing.
+    static let minBarHeight: CGFloat = 2.5
     static let width = CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * spacing
 
     /// Two keyframes the bars ease between; every value is <= `maxBarHeight`.
@@ -137,8 +141,13 @@ private enum WaveformMetrics {
 /// `CABasicAnimation`, so it never wakes SwiftUI's update loop and never forces a panel +
 /// `glassEffect` display-list recommit. A `.repeatForever` SwiftUI animation here instead
 /// costs ~30% CPU while the panel is open (~2% otherwise).
+///
+/// With `levels`, a 30 fps display link sets each bar's scale straight on its layer from the
+/// live spectrum — still no SwiftUI involvement — so the bars follow the music and go flat
+/// on dead air.
 private struct CoreAnimationWaveform: NSViewRepresentable {
     let isActive: Bool
+    let levels: AudioLevels?
 
     func makeNSView(context: Context) -> NSView {
         let m = WaveformMetrics.self
@@ -162,15 +171,58 @@ private struct CoreAnimationWaveform: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.levels = levels
+        context.coordinator.attach(to: nsView)
         context.coordinator.setActive(isActive)
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.invalidate()
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    final class Coordinator {
+    final class Coordinator: NSObject {
         var bars: [CALayer] = []
+        var levels: AudioLevels?
+        private var displayLink: CADisplayLink?
+        /// Eased per-bar heights (0…1) so ~20 Hz analysis reads as smooth 30 fps motion.
+        private var shown = [CGFloat](repeating: 0, count: WaveformMetrics.barCount)
+
+        func attach(to view: NSView) {
+            guard displayLink == nil, levels != nil else { return }
+            let link = view.displayLink(target: self, selector: #selector(tick))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 20, maximum: 30, preferred: 30)
+            link.isPaused = true
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+
+        func invalidate() {
+            displayLink?.invalidate()
+            displayLink = nil
+        }
+
+        @objc private func tick() {
+            guard let levels else { return }
+            let m = WaveformMetrics.self
+            let target = levels.snapshot()
+            let minScale = m.minBarHeight / m.maxBarHeight
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for (i, bar) in bars.enumerated() where i < target.count {
+                shown[i] += (CGFloat(target[i]) - shown[i]) * 0.45
+                let scale = minScale + (1 - minScale) * shown[i]
+                bar.transform = CATransform3DMakeScale(1, scale, 1)
+            }
+            CATransaction.commit()
+        }
 
         func setActive(_ active: Bool) {
+            if levels != nil {
+                displayLink?.isPaused = !active
+                return
+            }
             let m = WaveformMetrics.self
             for (i, bar) in bars.enumerated() {
                 if active {

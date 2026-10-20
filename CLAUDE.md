@@ -26,7 +26,7 @@ The panel (`NSPanel` wrapping `ContentView` via `NSHostingController`) is create
 
 Two independent async producers exist:
 - `NTSService`: polls `https://www.nts.live/api/v2/live` every 30s while the panel is open (`startPolling`/`stopPolling`, called from `showPanel`/`closePanel`), decodes `NTSLiveResponse` into `channels`. A single persistent `NWPathMonitor` (started once at launch, never stopped) drives `isOffline` and triggers a re-fetch on reconnect.
-- `RadioPlayer`: wraps a single `AVPlayer` for whichever of the two live streams is active. `toggle`/`play`/`stop`/`fadeOutAndStop` are the only entry points; `play` always calls `stop` first to tear down the previous player/observers before building a new one. KVO observers (`timeControlObserver`, `itemStatusObserver`) are created per-`play()` call and invalidated in `stop()`.
+- `RadioPlayer`: owns a single `LiveStreamEngine` (`LiveStreamEngine.swift`) for whichever live stream or mixtape is active. `toggle`/`play`/`stop`/`fadeOutAndStop` are the only entry points; `play` always calls `stop` first, then builds a fresh engine. The engine replaces `AVPlayer` (which exposes no samples for these live MP3 streams): `URLSession` → `MP3StreamDecoder` (`AudioFileStream` + `AVAudioConverter`) → `AVAudioEngine`, reporting `.buffering`/`.playing`/`.failed` events that feed `RadioPlayer`'s stall watchdog and backoff reconnects. A level tap feeds `AudioLevels` (5-band FFT), which the now-playing bars (`WaveformView`) poll from a display link — it's deliberately not `@Published`, and is only computed while the panel is visible.
 
 ### View structure
 

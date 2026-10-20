@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import AVFoundation
 import OSLog
 #if os(macOS)
 import MediaPlayer
@@ -41,7 +40,7 @@ enum RadioChannel: Int, CaseIterable, Identifiable {
     var previous: RadioChannel { self == .two ? .one : .two }
 }
 
-/// What the single `AVPlayer` is currently pointed at — a live NTS channel or an
+/// What the single stream engine is currently pointed at — a live NTS channel or an
 /// Infinite Mixtape. Equality is by identity (channel case / mixtape alias) so a
 /// background refresh of the mixtape list never drops the "playing" highlight.
 enum PlayingItem: Equatable, Sendable {
@@ -84,19 +83,25 @@ class RadioPlayer: ObservableObject {
     /// Read-only convenience for call sites and tests that only care about live channels.
     var playingChannel: RadioChannel? { playing?.channel }
     @Published var isBuffering = false
-    @Published var isPanelVisible = false
+    @Published var isPanelVisible = false {
+        didSet { levels.isEnabled = isPanelVisible }
+    }
+
+    /// Live spectrum of the playing stream, for the now-playing bars. Not `@Published` — the
+    /// bars poll it from a display link so level changes never re-render SwiftUI.
+    let levels = AudioLevels()
     /// Set when a stream fails and the one automatic retry is also exhausted. Survives `stop()`
     /// so the panel can show a "playback stopped" state; cleared when playback next starts.
     @Published var streamFailed = false
 
-    /// App-level output volume (0…1), applied to whichever `AVPlayer` is live and persisted
+    /// App-level output volume (0…1), applied to whichever stream engine is live and persisted
     /// across launches. Independent of system volume. Every `play()` applies it to the new
-    /// player; `fadeOutAndStop` ramps the underlying `AVPlayer.volume` relative to this and
+    /// engine; `fadeOutAndStop` ramps the engine's own volume relative to this and
     /// never writes back here, so the stored level survives a fade-out.
     private static let volumeKey = "playerVolume"
     @Published var volume: Float = 1.0 {
         didSet {
-            player?.volume = volume
+            engine?.volume = volume
             UserDefaults.standard.set(Double(volume), forKey: Self.volumeKey)
         }
     }
@@ -142,9 +147,7 @@ class RadioPlayer: ObservableObject {
     /// mixtape never lingers. Kept current by `AppDelegate` from `MixtapeNowPlayingService`.
     @Published var currentMixtapeNowPlaying: MixtapeNowPlaying?
 
-    private var player: AVPlayer?
-    private var timeControlObserver: NSKeyValueObservation?
-    private var itemStatusObserver: NSKeyValueObservation?
+    private var engine: LiveStreamEngine?
     private var artworkTask: Task<Void, Never>?
     private var fadeTask: Task<Void, Never>?
     // Keeps the last broadcast so media key play can restore context
@@ -188,9 +191,9 @@ class RadioPlayer: ObservableObject {
     /// Fades volume to zero over ~300 ms then stops. Calls `completion` when done.
     /// Used for user-initiated stops and app quit. `stop()` remains immediate for internal use.
     func fadeOutAndStop(completion: (@MainActor () -> Void)? = nil) {
-        guard let p = player else { stop(); completion?(); return }
+        guard let p = engine else { stop(); completion?(); return }
         fadeTask?.cancel()
-        let startVolume = p.volume
+        let startVolume = volume
         fadeTask = Task { @MainActor [weak self] in
             for i in stride(from: 11, through: 0, by: -1) {
                 guard !Task.isCancelled else { break }
@@ -209,12 +212,9 @@ class RadioPlayer: ObservableObject {
         reconnectTask = nil
         stallTask?.cancel()
         stallTask = nil
-        player?.pause()
-        timeControlObserver?.invalidate()
-        timeControlObserver = nil
-        itemStatusObserver?.invalidate()
-        itemStatusObserver = nil
-        player = nil
+        engine?.stop()
+        engine = nil
+        levels.reset()
         playing = nil
         isBuffering = false
         currentMixtapeNowPlaying = nil
@@ -247,49 +247,41 @@ class RadioPlayer: ObservableObject {
             Log.player.notice("Play \(item.label, privacy: .public)")
         }
 
-        let avItem = AVPlayerItem(url: item.streamURL)
-        let newPlayer = AVPlayer(playerItem: avItem)
-        newPlayer.volume = volume
-        player = newPlayer
         playing = item
         isBuffering = true
         lastItem = item
         lastBroadcast = broadcast
 
-        timeControlObserver = newPlayer.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.isBuffering = p.timeControlStatus == .waitingToPlayAtSpecifiedRate
-                switch p.timeControlStatus {
-                case .playing:
-                    if self.reconnectAttempts > 0 {
-                        Log.player.notice("Stream recovered after \(self.reconnectAttempts) attempt(s)")
-                    }
-                    self.reconnectAttempts = 0
-                    self.streamFailed = false
-                    self.stallTask?.cancel()
-                    self.stallTask = nil
-                case .waitingToPlayAtSpecifiedRate:
-                    self.startStallWatchdog()
-                default:
-                    break
-                }
-            }
+        let newEngine = LiveStreamEngine(url: item.streamURL, volume: volume, levels: levels) { [weak self] source, event in
+            // Ignore late events from an engine that has since been stopped or replaced.
+            guard let self, self.engine === source else { return }
+            self.handle(event)
         }
-
-        itemStatusObserver = avItem.observe(\.status, options: [.new]) { [weak self] playerItem, _ in
-            guard playerItem.status == .failed else { return }
-            let message = playerItem.error?.localizedDescription ?? "unknown error"
-            Task { @MainActor [weak self] in
-                self?.handleStreamProblem("item failed: \(message)")
-            }
-        }
-
-        newPlayer.play()
+        engine = newEngine
+        newEngine.start()
 
         #if os(macOS)
         updateNowPlaying(item: item, broadcast: broadcast)
         #endif
+    }
+
+    private func handle(_ event: LiveStreamEngine.Event) {
+        switch event {
+        case .playing:
+            isBuffering = false
+            if reconnectAttempts > 0 {
+                Log.player.notice("Stream recovered after \(self.reconnectAttempts) attempt(s)")
+            }
+            reconnectAttempts = 0
+            streamFailed = false
+            stallTask?.cancel()
+            stallTask = nil
+        case .buffering:
+            isBuffering = true
+            startStallWatchdog()
+        case .failed(let reason):
+            handleStreamProblem(reason)
+        }
     }
 
     /// Fires if the stream sits in "buffering" for `stallTimeout` without ever erroring —

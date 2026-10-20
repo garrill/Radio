@@ -128,6 +128,15 @@ struct ContentView: View {
 
     // MARK: - Top Banner
 
+    /// Fixed height of `topBanner` (including its divider) — `AppDelegate.panelSize` adds this
+    /// whenever `hasTopBanner` is true, so the bottom menu isn't clipped.
+    static let topBannerHeight: CGFloat = 36
+
+    /// Must match the conditions in `topBanner`.
+    static func hasTopBanner(player: RadioPlayer, ntsService: NTSService) -> Bool {
+        ntsService.isOffline || player.streamFailed
+    }
+
     /// At most one of: offline notice or playback-failed notice.
     @ViewBuilder private var topBanner: some View {
         if ntsService.isOffline {
@@ -151,10 +160,10 @@ struct ContentView: View {
         VStack(spacing: 0) {
             HStack(spacing: 6) { content() }
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
         }
+        .frame(height: Self.topBannerHeight)
     }
 
     private func openChatroom() {
